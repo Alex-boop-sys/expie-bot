@@ -2,6 +2,22 @@ import discord
 from discord.ext import commands
 import aiohttp
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# ============ ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ДЛЯ RENDER ============
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Expie is alive!")
+
+def run_dummy_server():
+    server = HTTPServer(("0.0.0.0", 10000), DummyHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_dummy_server, daemon=True).start()
+print("🌐 Фейковый сервер запущен на порту 10000 для Render")
 
 # ============ API KEYS ============
 # Ключи берутся из переменных окружения (Environment Variables)
