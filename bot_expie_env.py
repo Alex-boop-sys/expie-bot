@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import aiohttp
 import os
+import random
+from duckduckgo_search import DDGS
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -191,6 +193,25 @@ async def cmd_lore(ctx, *, topic):
     async with ctx.typing():
         response = await ask_groq(ctx.author.id, user_name, prompt)
         await ctx.reply(response)
+
+@bot.command(name="арт")
+async def cmd_art(ctx, *, query=None):
+    if not query:
+        query = "Expie casualties unknown fanart"
+    async with ctx.typing():
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.images(query, max_results=20))
+                if not results:
+                    await ctx.reply("*прижимает уши* Ничего не нашёл...")
+                    return
+                valid_images = [r for r in results if r.get("image")]
+                image = random.choice(valid_images)
+                embed = discord.Embed(title="*виляет хвостом* О, смотри что нашёл!", color=0xFF6600)
+                embed.set_image(url=image["image"])
+                await ctx.reply(embed=embed)
+        except Exception as e:
+            await ctx.reply(f"*вздрагивает* Ошибка: {str(e)[:80]}")
 
 # ============ MENTION HANDLING ============
 
