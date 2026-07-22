@@ -195,16 +195,16 @@ async def cmd_lore(ctx, *, topic):
 
 @bot.command(name="арт")
 async def cmd_art(ctx, *, query=None):
-    """!арт — случайный арт Экспи. !арт <теги> — поиск по e926."""
+    """!арт — случайный арт Экспи. !арт <теги> — поиск по e621."""
     
     if not query:
         query = "expie_(gunsawian)"
     
     async with ctx.typing():
         try:
-            # E926 использует подчёркивания вместо пробелов в тегах
+            # E621 использует подчёркивания вместо пробелов в тегах
             tags = query.replace(" ", "_")
-            url = f"https://e926.net/posts.json?tags={tags}&limit=30"
+            url = f"https://e621.net/posts.json?tags={tags}&limit=30"
             
             headers = {
                 "User-Agent": "ExpieDiscordBot/1.0 (by Discord user)"
@@ -249,7 +249,7 @@ async def cmd_art(ctx, *, query=None):
                     )
                     embed.set_image(url=image_url)
                     embed.set_footer(
-                        text=f"🦊 Источник: e926.net | ID: {post.get('id', '?')}"
+                        text=f"🦊 Источник: глутамат натрия | ID: {post.get('id', '?')}"
                     )
                     
                     await ctx.reply(embed=embed)
