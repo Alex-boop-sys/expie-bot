@@ -193,6 +193,70 @@ async def cmd_lore(ctx, *, topic):
         response = await ask_groq(ctx.author.id, user_name, prompt)
         await ctx.reply(response)
 
+@bot.command(name="арт")
+async def cmd_art(ctx, *, query=None):
+    """!арт — случайный арт Экспи. !арт <теги> — поиск по e926."""
+    
+    if not query:
+        query = "expie_(gunsawian)"
+    
+    async with ctx.typing():
+        try:
+            # E926 использует подчёркивания вместо пробелов в тегах
+            tags = query.replace(" ", "_")
+            url = f"https://e926.net/posts.json?tags={tags}&limit=30"
+            
+            headers = {
+                "User-Agent": "ExpieDiscordBot/1.0 (by Discord user)"
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url, 
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=15)
+                ) as resp:
+                    
+                    if resp.status != 200:
+                        await ctx.reply(f"*вздрагивает* Сайт отвечает кодом {resp.status}...")
+                        return
+                    
+                    data = await resp.json()
+                    posts = data.get("posts", [])
+                    
+                    if not posts:
+                        await ctx.reply("*нюхает воздух* Ничего не нашёл по этому запросу...")
+                        return
+                    
+                    # Фильтруем только посты с рабочими картинками
+                    valid_posts = [
+                        p for p in posts 
+                        if p.get("file") and p["file"].get("url")
+                    ]
+                    
+                    if not valid_posts:
+                        await ctx.reply("*наклоняет голову* Нашёл посты, но картинки недоступны...")
+                        return
+                    
+                    post = random.choice(valid_posts)
+                    image_url = post["file"]["url"]
+                    
+                    # Создаём красивую карточку
+                    embed = discord.Embed(
+                        title="*виляет хвостом* О, смотри что нашёл!",
+                        description=f"По запросу: `{query}`",
+                        color=0xFF6600  # Оранжевый
+                    )
+                    embed.set_image(url=image_url)
+                    embed.set_footer(
+                        text=f"🦊 Источник: e926.net | ID: {post.get('id', '?')}"
+                    )
+                    
+                    await ctx.reply(embed=embed)
+                    
+        except Exception as e:
+            await ctx.reply(f"*вздрагивает* Ой, что-то сломалось: {str(e)[:80]}")
+            
 # ============ MENTION HANDLING ============
 
 @bot.event
