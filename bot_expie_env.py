@@ -4,6 +4,7 @@ import aiohttp
 import os
 import random
 from duckduckgo_search import DDGS
+from duckduckgo_search import AsyncDDGS
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -198,20 +199,27 @@ async def cmd_lore(ctx, *, topic):
 async def cmd_art(ctx, *, query=None):
     if not query:
         query = "Expie casualties unknown fanart"
+    
     async with ctx.typing():
         try:
-            with DDGS() as ddgs:
-                results = list(ddgs.images(query, max_results=20))
+            async with AsyncDDGS() as ddgs:
+                results = []
+                async for r in ddgs.images(query, max_results=15):
+                    results.append(r)
+                    if len(results) >= 10:
+                        break
+                
                 if not results:
                     await ctx.reply("*прижимает уши* Ничего не нашёл...")
                     return
-                valid_images = [r for r in results if r.get("image")]
-                image = random.choice(valid_images)
-                embed = discord.Embed(title="*виляет хвостом* О, смотри что нашёл!", color=0xFF6600)
+                
+                image = random.choice(results)
+                embed = discord.Embed(title="*виляет хвостом* О, смотри!", color=0xFF6600)
                 embed.set_image(url=image["image"])
                 await ctx.reply(embed=embed)
+                
         except Exception as e:
-            await ctx.reply(f"*вздрагивает* Ошибка: {str(e)[:80]}")
+            await ctx.reply(f"*вздрагивает* Опять эта штука сломалась... Ошибка: {str(e)[:80]}")
 
 # ============ MENTION HANDLING ============
 
