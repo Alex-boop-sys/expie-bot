@@ -3,6 +3,8 @@ from discord.ext import commands
 import aiohttp
 import os
 import io
+import aiohttp
+import urllib.parse
 import random
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -297,6 +299,50 @@ async def cmd_art(ctx, *, query=None):
                     
         except Exception as e:
             await ctx.reply(f"*вздрагивает* Ой, что-то сломалось: {str(e)[:80]}")
+
+@bot.command(name="ген")
+async def cmd_generate(ctx, *, prompt=None):
+    """!ген <описание> — сгенерировать картинку. Без промпта — случайный Экспи."""
+    
+    if not prompt:
+        prompt = "solo, cute fluffy black anthropomorphic wolf-fox-rat hybrid creature, big orange eyes, big fluffy tail with orange tip, three wolf ears, long muzzle, furry art, digital painting, high quality, kawaii style"
+    
+    # Улучшаем промпт стилем Экспи
+    enhanced_prompt = (
+        f"{prompt}, furry art, digital illustration, "
+        "high quality, detailed fur, soft lighting, cute expression"
+    )
+    
+    # Кодируем промпт для URL
+    encoded = urllib.parse.quote(enhanced_prompt)
+    
+    # Pollinations генерирует прямо по URL
+    image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+    
+    async with ctx.typing():
+        try:
+            async with aiohttp.ClientSession() as session:
+                # Проверяем, что картинка реально сгенерировалась
+                async with session.get(image_url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                    if resp.status != 200:
+                        await ctx.reply("*прижимает уши* Генератор не отвечает... Попробуй позже!")
+                        return
+                    
+                    image_data = await resp.read()
+                    
+                    # Отправляем как файл
+                    file = discord.File(
+                        fp=io.BytesIO(image_data),
+                        filename="expie_generated.png"
+                    )
+                    
+                    await ctx.reply(
+                        content=f"*виляет хвостом* О, я нарисовал! По запросу: `{prompt[:100]}`",
+                        file=file
+                    )
+                    
+        except Exception as e:
+            await ctx.reply(f"*вздрагивает* Что-то пошло не так: {str(e)[:80]}")
             
 # ============ MENTION HANDLING ============
 
