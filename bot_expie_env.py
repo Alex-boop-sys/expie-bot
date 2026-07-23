@@ -305,7 +305,7 @@ async def cmd_generate(ctx, *, prompt=None):
     """!ген <описание> — сгенерировать картинку. Без промпта — случайный Экспи."""
     
     if not prompt:
-        prompt = "solo, cute, fluffy, black melanist, anthro, furry, wolf-fox hybrid, big orange eyes, big fluffy tail with orange tip, three wolf ears, high quality, kawaii style, beautiful background"
+        prompt = "solo, cute, fluffy, black melanistic fur, anthro, furry, wolf-fox hybrid, big eyes, orange sclera, big fluffy tail, orange tip tail, three ears, high quality, kawaii style, beautiful background"
     
     # Улучшаем промпт стилем Экспи
     enhanced_prompt = (
