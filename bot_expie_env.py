@@ -165,17 +165,17 @@ async def on_ready():
 
 # ============ COMMANDS ============
 
-@bot.command(name="экспи")
+@bot.command(name="Экспи")
 async def cmd_expie_ru(ctx, *, message):
-    """!экспи <сообщение>"""
+    """!Экспи <сообщение>"""
     user_name = ctx.author.display_name
     async with ctx.typing():
         response = await ask_groq(ctx.author.id, user_name, message)
         await ctx.reply(response)
 
-@bot.command(name="expie")
+@bot.command(name="Expie")
 async def cmd_expie_en(ctx, *, message):
-    """!expie <сообщение>"""
+    """!Expie <сообщение>"""
     user_name = ctx.author.display_name
     async with ctx.typing():
         response = await ask_groq(ctx.author.id, user_name, message)
