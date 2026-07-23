@@ -201,11 +201,11 @@ async def cmd_art(ctx, *, query=None):
     # Если запрос не указан — выбираем случайный вариант для разнообразия
     if not query:
         search_variants = [
-            "expie_(gunsawian)",
-            "casualties:_unknown",
-            "gunsawian",
-            "milky_(gunsawian)",
-            "dune_(gunsawian)"
+            "expie_(gunsawian)&rating:safe",
+            "casualties:_unknown&rating:safe",
+            "gunsawian&rating:safe",
+            "milky_(gunsawian)&rating:safe",
+            "dune_(gunsawian)&rating:safe"
         ]
         tags = random.choice(search_variants).replace(" ", "_")
     else:
@@ -213,8 +213,8 @@ async def cmd_art(ctx, *, query=None):
     
     async with ctx.typing():
         try:
-            # limit=150 — максимум, который даёт e621
-            url = f"https://e621.net/posts.json?tags={tags}&limit=320"
+            # limit=300 — примерный максим
+            url = f"https://e621.net/posts.json?tags={tags}&limit=300"
             
             headers = {
                 "User-Agent": "ExpieDiscordBot/1.0 (by Discord user)"
