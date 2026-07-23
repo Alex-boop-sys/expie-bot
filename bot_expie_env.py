@@ -305,7 +305,7 @@ async def cmd_generate(ctx, *, prompt=None):
     """!ген <описание> — сгенерировать картинку. Без промпта — случайный Экспи."""
     
     if not prompt:
-        prompt = "solo, cute fluffy black anthropomorphic wolf-fox-rat hybrid creature, big orange eyes, big fluffy tail with orange tip, three wolf ears, long muzzle, furry art, digital painting, high quality, kawaii style"
+        prompt = "solo, cute, fluffy, black melanist, anthro, furry, wolf-fox hybrid, big orange eyes, big fluffy tail with orange tip, three wolf ears, high quality, kawaii style, beautiful background"
     
     # Улучшаем промпт стилем Экспи
     enhanced_prompt = (
@@ -317,7 +317,8 @@ async def cmd_generate(ctx, *, prompt=None):
     encoded = urllib.parse.quote(enhanced_prompt)
     
     # Pollinations генерирует прямо по URL
-    image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+    seed = random.randint(1, 999999)
+    image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true&seed={seed}"
     
     async with ctx.typing():
         try:
@@ -337,7 +338,7 @@ async def cmd_generate(ctx, *, prompt=None):
                     )
                     
                     await ctx.reply(
-                        content=f"*виляет хвостом* О, я нарисовал! По запросу: `{prompt[:100]}`",
+                        content=f"*виляет хвостом* О, я нарисовал! По запросу: `{prompt[:300]}`",
                         file=file
                     )
                     
