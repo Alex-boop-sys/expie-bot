@@ -395,13 +395,20 @@ async def on_message(message):
             clean_content = clean_content.replace(f'<@{mention.id}>', '')
             clean_content = clean_content.replace(f'<@!{mention.id}>', '')
         clean_content = clean_content.strip()
-
-        if clean_content:
-            async with message.channel.typing():
-                response = await ask_ai(message.author.id, user_name, clean_content)
-                await message.reply(response)
-        else:
+        
+        # Пустой пинг
+        if not clean_content:
             await message.reply("*виляет хвостом* Привет-привет! Я тут! Чего хотел, бро? 🦊")
+            return
+        
+        # === ФИЛЬТР: мусор после очистки пинга ===
+        if len(clean_content) <= 3:
+            await message.reply(clean_content)
+            return
+        
+        async with message.channel.typing():
+            response = await ask_ai(message.author.id, user_name, clean_content)
+            await message.reply(response)
         return
 
     # === Текстовые упоминания @Экспи / @Expie ===
@@ -411,13 +418,20 @@ async def on_message(message):
             for a in EXPIE_ALIASES:
                 clean_content = clean_content.replace(f"@{a}", "").replace(f"@{a.capitalize()}", "")
             clean_content = clean_content.strip()
-
-            if clean_content:
-                async with message.channel.typing():
-                    response = await ask_ai(message.author.id, user_name, clean_content)
-                    await message.reply(response)
-            else:
+            
+            # Пустое упоминание
+            if not clean_content:
                 await message.reply("*приподнимается на задние лапы* Я тут! Что случилось? 👀")
+                return
+            
+            # === ФИЛЬТР: мусор после очистки @Экспи ===
+            if len(clean_content) <= 3:
+                await message.reply(clean_content)
+                return
+            
+            async with message.channel.typing():
+                response = await ask_ai(message.author.id, user_name, clean_content)
+                await message.reply(response)
             return
 
     # === Автоответ в канале #чат-с-экспи ===
