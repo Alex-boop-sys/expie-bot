@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import aiohttp
 import os
+import io
 import random
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -197,14 +198,23 @@ async def cmd_lore(ctx, *, topic):
 async def cmd_art(ctx, *, query=None):
     """!арт — случайный арт Экспи. !арт <теги> — поиск по e621."""
     
+    # Если запрос не указан — выбираем случайный вариант для разнообразия
     if not query:
-        query = "expie_(gunsawian)"
+        search_variants = [
+            "expie_(gunsawian)",
+            "casualties:_unknown",
+            "gunsawian",
+            "milky_(gunsawian)",
+            "dune_(gunsawian)"
+        ]
+        tags = random.choice(search_variants).replace(" ", "_")
+    else:
+        tags = query.replace(" ", "_")
     
     async with ctx.typing():
         try:
-            # E621 использует подчёркивания вместо пробелов в тегах
-            tags = query.replace(" ", "_")
-            url = f"https://e621.net/posts.json?tags={tags}&limit=30"
+            # limit=150 — максимум, который даёт e621
+            url = f"https://e621.net/posts.json?tags={tags}&limit=320"
             
             headers = {
                 "User-Agent": "ExpieDiscordBot/1.0 (by Discord user)"
@@ -214,7 +224,7 @@ async def cmd_art(ctx, *, query=None):
                 async with session.get(
                     url, 
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=15)
+                    timeout=aiohttp.ClientTimeout(total=20)
                 ) as resp:
                     
                     if resp.status != 200:
@@ -228,31 +238,62 @@ async def cmd_art(ctx, *, query=None):
                         await ctx.reply("*нюхает воздух* Ничего не нашёл по этому запросу...")
                         return
                     
-                    # Фильтруем только посты с рабочими картинками
-                    valid_posts = [
-                        p for p in posts 
-                        if p.get("file") and p["file"].get("url")
-                    ]
+                    # Фильтруем: только картинки, убираем дубликаты
+                    seen_urls = set()
+                    valid_posts = []
+                    
+                    for p in posts:
+                        file_data = p.get("file")
+                        if not file_data or not file_data.get("url"):
+                            continue
+                        
+                        img_url = file_data["url"]
+                        
+                        # Пропускаем дубликаты
+                        if img_url in seen_urls:
+                            continue
+                        seen_urls.add(img_url)
+                        
+                        # Пропускаем видео/анимации
+                        ext = img_url.split(".")[-1].split("?")[0].lower()
+                        if ext in ("webm", "swf", "mp4"):
+                            continue
+                        
+                        valid_posts.append(p)
                     
                     if not valid_posts:
-                        await ctx.reply("*наклоняет голову* Нашёл посты, но картинки недоступны...")
+                        await ctx.reply("*наклоняет голову* Нашёл посты, но картинки недоступны или все повторы...")
                         return
                     
                     post = random.choice(valid_posts)
                     image_url = post["file"]["url"]
                     
-                    # Создаём красивую карточку
-                    embed = discord.Embed(
-                        title="*виляет хвостом* О, смотри что нашёл!",
-                        description=f"По запросу: `{query}`",
-                        color=0xFF6600  # Оранжевый
-                    )
-                    embed.set_image(url=image_url)
-                    embed.set_footer(
-                        text=f"🦊 Источник: глутамат натрия | ID: {post.get('id', '?')}"
-                    )
-                    
-                    await ctx.reply(embed=embed)
+                    # СКАЧИВАЕМ картинку и отправляем как файл — без рамки embed!
+                    async with session.get(image_url) as img_resp:
+                        if img_resp.status != 200:
+                            # Fallback: если не скачалось — отправляем ссылкой
+                            await ctx.reply(
+                                f"*виляет хвостом* О, смотри что нашёл!\\n{image_url}"
+                            )
+                            return
+                        
+                        image_data = await img_resp.read()
+                        
+                        # Определяем расширение
+                        ext = image_url.split(".")[-1].split("?")[0].lower()
+                        if ext not in ("png", "jpg", "jpeg", "gif", "webp"):
+                            ext = "png"
+                        
+                        # Отправляем как файл — просто текст + картинка, без рамки
+                        file = discord.File(
+                            fp=io.BytesIO(image_data), 
+                            filename=f"expie_art.{ext}"
+                        )
+                        
+                        await ctx.reply(
+                            content="Вот, смотри что нашёл! *виляет хвостом*",
+                            file=file
+                        )
                     
         except Exception as e:
             await ctx.reply(f"*вздрагивает* Ой, что-то сломалось: {str(e)[:80]}")
