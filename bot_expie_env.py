@@ -207,11 +207,11 @@ async def cmd_art(ctx, *, query=None):
     # Если запрос не указан — выбираем случайный вариант для разнообразия
     if not query:
         search_variants = [
-            "expie_(gunsawian)&rating:safe",
-            "casualties:_unknown&rating:safe",
-            "gunsawian&rating:safe",
-            "milky_(gunsawian)&rating:safe",
-            "dune_(gunsawian)&rating:safe"
+            "expie_(gunsawian)+-rating%3Aexplicit+",
+            "casualties:_unknown+-rating%3Aexplicit+",
+            "gunsawian+-rating%3Aexplicit+",
+            "milky_(gunsawian)+-rating%3Aexplicit+",
+            "dune_(gunsawian)+-rating%3Aexplicit+"
         ]
         tags = random.choice(search_variants).replace(" ", "_")
     else:
