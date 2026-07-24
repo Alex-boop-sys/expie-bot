@@ -1,16 +1,28 @@
 import discord
 import random
-from config import EXPIE_ALIASES, IMAGE_RESPONSES
+from config import EXPIE_ALIASES, IMAGE_RESPONSES, ALLOWED_GUILD_IDS
 from api_client import ask_ai
 
 
-def register_handlers(bot):
+async def register_handlers(bot):
     """Регистрация обработчиков сообщений."""
+
+    @bot.event
+    async def on_guild_join(guild):
+        """Авто-выход с неразрешенных серверов"""
+        if ALLOWED_GUILD_IDS and guild.id not in ALLOWED_GUILD_IDS:
+            await guild.leave()
+            print(f"❌ Покинул чужой сервер: {guild.name} ({guild.id})")
 
     @bot.event
     async def on_message(message):
         if message.author == bot.user:
             return
+
+        # === WHITELIST: игнорируем чужие серверы и ЛС ===
+        if ALLOWED_GUILD_IDS:
+            if message.guild is None or message.guild.id not in ALLOWED_GUILD_IDS:
+                return
 
         user_name = message.author.display_name
         content_lower = message.content.lower()
