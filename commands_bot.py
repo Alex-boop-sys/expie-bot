@@ -6,7 +6,7 @@ import random
 from api_client import ask_ai, clear_history
 
 
-async def register_commands(bot):
+def register_commands(bot):
     """Регистрация всех команд бота."""
 
     @bot.command(name="Экспи")
