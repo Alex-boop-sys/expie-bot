@@ -4,7 +4,7 @@ from config import EXPIE_ALIASES, IMAGE_RESPONSES, ALLOWED_GUILD_IDS
 from api_client import ask_ai
 
 
-async def register_handlers(bot):
+def register_handlers(bot):
     """Регистрация обработчиков сообщений."""
 
     @bot.event
