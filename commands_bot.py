@@ -150,27 +150,33 @@ def register_commands(bot):
                 
     @bot.command(name="фурь")
     async def cmd_fur(ctx, *, query=None):
-        """!фурь <теги> — поиск артов на Furbooru."""
+        """!фурь <теги> — поиск SFW артов на Furbooru."""
 
         if not query:
             await ctx.reply(
-                "*наклоняет голову* Ой, а что искать-то? 🦊\n\n"
+                "*наклоняет голову* Ой, а что искать-то? 🦊\n"
                 "Пиши так: `!фурь cute, wolf, solo`\n"
                 "Теги — на **английском**, через запятую или пробел.\n"
-                "Например: `!фурь expie, anthro` или `!фурь fluffy, fox, safe`"
+                "Например: `!фурь expie, anthro` или `!фурь fluffy, fox`"
             )
             return
 
         # Нормализуем теги: заменяем пробелы на запятые, убираем лишние
         tags_raw = query.replace(" ", ",").replace(",,", ",")
-        tags_clean = ",".join([t.strip() for t in tags_raw.split(",") if t.strip()])
+        tags_list = [t.strip().lower() for t in tags_raw.split(",") if t.strip()]
+        
+        # Автоматически добавляем safe, если его ещё нет (невидимо для пользователя)
+        if "safe" not in tags_list:
+            tags_list.insert(0, "safe")
+        
+        tags_clean = ",".join(tags_list)
 
         comments = [
             "*виляет хвостом* О, смотри-ка что нашёл! 🎨",
             "*приподнимается на задние лапы* Ого, это же... это! 👀",
             "*нюхает экран* Пахнет красивым артом! 🖼️",
             "*заглядывает через плечо* Нашёл кое-что интересненькое~ ✨",
-            "*восторженно виляет* Вот это да, крутая картинка! 🦊"
+            "*восторженно виляет* Вот это да, крутая картинка? 🦊"
         ]
 
         async with ctx.typing():
