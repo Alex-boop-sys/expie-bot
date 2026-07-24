@@ -147,3 +147,83 @@ def register_commands(bot):
                         )
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Что-то пошло не так: {str(e)[:80]}")
+                
+    @bot.command(name="фурь")
+    async def cmd_fur(ctx, *, query=None):
+        """!фурь <теги> — поиск артов на Furbooru."""
+
+        if not query:
+            await ctx.reply(
+                "*наклоняет голову* Ой, а что искать-то? 🦊\n\n"
+                "Пиши так: `!фурь cute, wolf, solo`\n"
+                "Теги — на **английском**, через запятую или пробел.\n"
+                "Например: `!фурь expie, anthro` или `!фурь fluffy, fox, safe`"
+            )
+            return
+
+        # Нормализуем теги: заменяем пробелы на запятые, убираем лишние
+        tags_raw = query.replace(" ", ",").replace(",,", ",")
+        tags_clean = ",".join([t.strip() for t in tags_raw.split(",") if t.strip()])
+
+        comments = [
+            "*виляет хвостом* О, смотри-ка что нашёл! 🎨",
+            "*приподнимается на задние лапы* Ого, это же... это! 👀",
+            "*нюхает экран* Пахнет красивым артом! 🖼️",
+            "*заглядывает через плечо* Нашёл кое-что интересненькое~ ✨",
+            "*восторженно виляет* Вот это да, крутая картинка! 🦊"
+        ]
+
+        async with ctx.typing():
+            try:
+                encoded = urllib.parse.quote(tags_clean)
+                url = f"https://furbooru.org/api/v1/json/search/images?q={encoded}&per_page=50"
+                headers = {"User-Agent": "ExpieDiscordBot/1.0 (by Discord user)"}
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                        if resp.status != 200:
+                            await ctx.reply(
+                                f"*вздрагивает* Furbooru отвечает кодом **{resp.status}**... "
+                                f"Попробуй позже или проверь теги! 📡"
+                            )
+                            return
+
+                        data = await resp.json()
+                        images = data.get("images", [])
+
+                        if not images:
+                            await ctx.reply(
+                                f"*нюхает воздух* Ничего не нашёл по тегам `{query}`... "
+                                f"Попробуй другие слова или проверь написание! 👃"
+                            )
+                            return
+
+                        image = random.choice(images)
+                        img_url = image.get("representations", {}).get("full") or image.get("source_url")
+
+                        if not img_url:
+                            await ctx.reply(
+                                "*наклоняет голову* Нашёл пост, но ссылка на картинку пустая... Странно! 🫥"
+                            )
+                            return
+
+                        async with session.get(img_url) as img_resp:
+                            if img_resp.status != 200:
+                                await ctx.reply(
+                                    f"*вздрагивает* Не могу скачать картинку: код **{img_resp.status}**... "
+                                    f"Может, она удалилась? 🖼️❌"
+                                )
+                                return
+
+                            image_data = await img_resp.read()
+                            ext = img_url.split(".")[-1].split("?")[0].lower()
+                            if ext not in ("png", "jpg", "jpeg", "gif", "webp"):
+                                ext = "png"
+
+                            file = discord.File(fp=io.BytesIO(image_data), filename=f"furbooru_art.{ext}")
+                            await ctx.reply(content=random.choice(comments), file=file)
+
+            except aiohttp.ClientError as e:
+                await ctx.reply(f"*вздрагивает* Сеть хрипит: `{str(e)[:100]}`... Попробуй позже! 📡")
+            except Exception as e:
+                await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}`... Ой. 🛠️")
