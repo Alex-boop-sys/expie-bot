@@ -25,7 +25,7 @@ def register_commands(bot):
             response = await ask_ai(ctx.author.id, user_name, message)
             await ctx.reply(response)
 
-    @bot.command(name="забыть")
+    @bot.command(name="забыть", aliases=["забудь"])
     async def cmd_forget(ctx):
         """Clear conversation history"""
         user_id = ctx.author.id
@@ -34,7 +34,7 @@ def register_commands(bot):
         else:
             await ctx.reply("*наклоняет голову* А мы с тобой уже разговаривали? Ну, привет тогда! 👋")
 
-    @bot.command(name="lore")
+    @bot.command(name="lore", aliases=["лор"])
     async def cmd_lore(ctx, *, topic):
         """!lore <тема> — detailed lore about the world"""
         user_name = ctx.author.display_name
@@ -115,7 +115,7 @@ def register_commands(bot):
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Ой, что-то сломалось: {str(e)[:80]}")
 
-    @bot.command(name="ген")
+    @bot.command(name="ген", aliases=["gen"])
     async def cmd_generate(ctx, *, prompt=None):
         """!ген <описание> — сгенерировать картинку. Без промпта — случайный Экспи."""
 
@@ -123,8 +123,7 @@ def register_commands(bot):
             prompt = "solo, cute, fluffy, black melanistic fur, anthro, furry, wolf-fox hybrid, big eyes, orange sclera, big fluffy tail, orange tip tail, three ears, high quality, kawaii style, beautiful background"
 
         enhanced_prompt = (
-            f"{prompt}, furry art, digital illustration, "
-            "high quality, detailed fur, soft lighting, cute expression"
+            f"{prompt}, detailed, soft lighting, expression"
         )
 
         encoded = urllib.parse.quote(enhanced_prompt)
@@ -148,7 +147,7 @@ def register_commands(bot):
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Что-то пошло не так: {str(e)[:80]}")
                 
-    @bot.command(name="фурь")
+    @bot.command(name="фурь", aliases=["furry", "fur", "фурри"])
     async def cmd_fur(ctx, *, query=None):
         """!фурь <теги> — поиск SFW артов на Furbooru."""
 
