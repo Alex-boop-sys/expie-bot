@@ -4,7 +4,7 @@ import io
 import urllib.parse
 import random
 from api_client import ask_ai, clear_history
-
+from config import OWNER_ID
 
 def register_commands(bot):
     """Регистрация всех команд бота."""
@@ -61,7 +61,7 @@ def register_commands(bot):
 
         async with ctx.typing():
             try:
-                url = f"https://e621.net/posts.json?tags={tags}&limit=300"
+                url = f"https://e621.net/posts.json?tags={tags}&limit=250"
                 headers = {"User-Agent": "ExpieDiscordBot/1.0 (by Discord user)"}
 
                 async with aiohttp.ClientSession() as session:
@@ -232,3 +232,95 @@ def register_commands(bot):
                 await ctx.reply(f"*вздрагивает* Сеть хрипит: `{str(e)[:100]}`... Попробуй позже! 📡")
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}`... Ой. 🛠️")
+
+    @bot.command(name="удали")
+    async def cmd_delete(ctx, channel_id: str = None, message_id: str = None):
+        """!удали ID_канала ID_сообщения — удалить сообщение бота"""
+
+        # Ограничение: только владелец бота (замени ID на свой)
+        if ctx.author.id != OWNER_ID:
+            await ctx.reply("*прижимает уши* Это только для хозяина... 🛡️")
+            return
+        
+        # Проверка формата
+        if not channel_id or not message_id:
+            await ctx.reply(
+                "*наклоняет голову* Неправильный формат!\n"
+                "Пиши так: `!удали ID_канала ID_сообщения`\n"
+                "Например: `!удали 1103257073095028798 1261234567890123456`"
+            )
+            return
+
+        # Проверка, что оба аргумента — цифры
+        if not channel_id.isdigit() or not message_id.isdigit():
+            await ctx.reply(
+                "*вздрагивает* ID должны состоять только из цифр!\n"
+                "Правильный формат: `!удали ID_канала ID_сообщения`"
+            )
+            return
+
+        try:
+            # discord.py уже авторизован — используем его внутренний HTTP-клиент
+            await bot.http.delete_message(int(channel_id), int(message_id))
+            await ctx.reply("*моргает* Удалено! Сообщение испарилось... ✨")
+
+        except discord.NotFound:
+            await ctx.reply("*нюхает воздух* Не нашёл такого сообщения... Может, уже удалили? 👃")
+
+        except discord.Forbidden:
+            await ctx.reply("*прижимает уши* Нет прав удалять это сообщение... Точно оно моё? 🛡️")
+
+        except discord.HTTPException as e:
+            await ctx.reply(
+                f"*вздрагивает* Не вышло... "
+                f"Код: `{e.status}` | Discord: `{e.code}` | {str(e)[:60]} 🛠️"
+            )
+
+        except Exception as e:
+            await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}` 🛠️")
+
+    @bot.command(name="напиши")
+    async def cmd_say(ctx, channel_id: str = None, *, message: str = None):
+        """!напиши ID_канала текст — написать от лица бота в указанный канал"""
+
+        # Проверка на владельца
+        if ctx.author.id != OWNER_ID:
+            await ctx.reply("*прижимает уши* Это только для хозяина... 🛡️")
+            return
+
+        # Проверка формата
+        if not channel_id or not message:
+            await ctx.reply(
+                "*наклоняет голову* Неправильный формат!\n"
+                "Пиши так: `!напиши ID_канала текст сообщения`\n"
+                "Например: `!напиши 1103257073095028798 Привет, друзья! 🦊`"
+            )
+            return
+
+        # Проверка, что ID канала — цифры
+        if not channel_id.isdigit():
+            await ctx.reply(
+                "*вздрагивает* ID канала должен состоять только из цифр!\n"
+                "Правильный формат: `!напиши ID_канала текст сообщения`"
+            )
+            return
+
+        try:
+            channel = await bot.fetch_channel(int(channel_id))
+            await channel.send(message)
+            await ctx.reply(f"*виляет хвостом* Отправлено в <#{channel_id}>! ✉️")
+
+        except discord.NotFound:
+            await ctx.reply("*нюхает воздух* Не нашёл такой канал... Точно правильный ID? 👃")
+
+        except discord.Forbidden:
+            await ctx.reply("*прижимает уши* Нет прав писать в этот канал... 🛡️")
+
+        except discord.HTTPException as e:
+            await ctx.reply(
+                f"*вздрагивает* Не вышло... "
+                f"Код: `{e.status}` | Discord: `{e.code}` | {str(e)[:60]} 🛠️"
+            )
+
+        except Exception as e:
+            await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}` 🛠️")
