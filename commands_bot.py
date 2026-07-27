@@ -376,9 +376,9 @@ def register_commands(bot):
             member = random.choice(candidates)
 
         # Защита от обнимания самого себя
-        if member == ctx.author:
-            await ctx.reply("*наклоняет голову* Самому себя обнять? Я попробую... *обнимает себя лапками*")
-            return
+        #if member == ctx.author:
+        #    await ctx.reply("*наклоняет голову* Самому себя обнять? Я попробую... *обнимает себя лапками*")
+        #    return
 
         # Защита от обнимания бота
         if member == bot.user:
