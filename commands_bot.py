@@ -323,3 +323,33 @@ def register_commands(bot):
 
         except Exception as e:
             await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}` 🛠️")
+
+    @bot.command(name="пара")
+    async def cmd_pair(ctx):
+        """!пара — выбрать случайную пару из онлайн-пользователей"""
+
+        if not ctx.guild:
+            await ctx.reply("*прижимает уши* Это работает только на сервере, бро! 🏠")
+            return
+
+        # Собираем живых людей онлайн (не ботов, не оффлайн)
+        online_users = [
+            m for m in ctx.guild.members
+            if not m.bot
+            and m.status in (discord.Status.online, discord.Status.idle, discord.Status.dnd)
+        ]
+
+        if len(online_users) < 2:
+            await ctx.reply("*нюхает воздух* Недостаточно людей онлайн для пары... 👃")
+            return
+
+        u1, u2 = random.sample(online_users, 2)
+
+        phrases = [
+            f"*виляет хвостом* Ого, смотрите-ка! {u1.mention} и {u2.mention} — ваша судьба связана! 💕",
+            f"*приподнимается на задние лапы* Я провёл сложные расчёты... {u1.mention} + {u2.mention} = ❤️",
+            f"*фыркает* Запах любви несётся! {u1.mention} и {u2.mention}, вы точно созданы друг для друга! 🦊💘",
+            f"*восторженно виляет* Ребята, смотрите! {u1.mention} и {u2.mention} так мило смотрятся вместе! 🐾",
+        ]
+
+        await ctx.reply(random.choice(phrases))

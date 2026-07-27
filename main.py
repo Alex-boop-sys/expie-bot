@@ -31,6 +31,8 @@ print("🌐 Фейковый сервер запущен на порту 10000 �
 # ============ BOT SETUP ============
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
+intents.presences = True
 
 bot = commands.Bot(
     command_prefix="!",
