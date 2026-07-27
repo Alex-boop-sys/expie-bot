@@ -40,7 +40,7 @@ def register_handlers(bot):
                 await message.reply(stripped)
             return
 
-        # === @Экспи / @Expie пинги ===
+        # === @Экспик / @Expie пинги ===
         if bot.user in message.mentions:
             clean_content = message.content
             for mention in message.mentions:
@@ -63,7 +63,7 @@ def register_handlers(bot):
                 await message.reply(response)
             return
 
-        # === Текстовые упоминания @Экспи / @Expie ===
+        # === Текстовые упоминания @Экспик / @Expie ===
         for alias in EXPIE_ALIASES:
             if f"@{alias}" in content_lower:
                 clean_content = message.content
@@ -76,7 +76,7 @@ def register_handlers(bot):
                     await message.reply("*приподнимается на задние лапы* Я тут! Что случилось? 👀")
                     return
 
-                # ФИЛЬТР: мусор после очистки @Экспи
+                # ФИЛЬТР: мусор после очистки @Экспик
                 if len(clean_content) <= 3:
                     await message.reply(clean_content)
                     return

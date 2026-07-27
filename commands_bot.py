@@ -9,9 +9,9 @@ from config import OWNER_ID
 def register_commands(bot):
     """Регистрация всех команд бота."""
 
-    @bot.command(name="Экспи")
+    @bot.command(name="Экспик")
     async def cmd_expie_ru(ctx, *, message):
-        """!Экспи <сообщение>"""
+        """!Экспик <сообщение>"""
         user_name = ctx.author.display_name
         async with ctx.typing():
             response = await ask_ai(ctx.author.id, user_name, message)
@@ -45,7 +45,7 @@ def register_commands(bot):
 
     @bot.command(name="арт", aliases=["art"])
     async def cmd_art(ctx, *, query=None):
-        """!арт — случайный арт Экспи. !арт <теги> — поиск по e621."""
+        """!арт — случайный арт Экспик. !арт <теги> — поиск по e621."""
 
         if not query:
             search_variants = [

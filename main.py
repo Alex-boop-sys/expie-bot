@@ -45,7 +45,7 @@ bot = commands.Bot(
 async def on_ready():
     activity = discord.Activity(
         type=discord.ActivityType.playing,
-        name="!Экспи | Общаюсь с друзьями 🦊"
+        name="!Экспик | Общаюсь с друзьями 🦊"
     )
     await bot.change_presence(activity=activity)
     print(f"🦊 Экспи на месте! Логин: {bot.user}")
