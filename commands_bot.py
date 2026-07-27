@@ -43,7 +43,7 @@ def register_commands(bot):
             response = await ask_ai(ctx.author.id, user_name, prompt)
             await ctx.reply(response)
 
-    @bot.command(name="арт")
+    @bot.command(name="арт", aliases=["art", "Art"])
     async def cmd_art(ctx, *, query=None):
         """!арт — случайный арт Экспи. !арт <теги> — поиск по e621."""
 

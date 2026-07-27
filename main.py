@@ -32,7 +32,11 @@ print("🌐 Фейковый сервер запущен на порту 10000 �
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    case_insensitive=True
+)
 
 
 @bot.event
