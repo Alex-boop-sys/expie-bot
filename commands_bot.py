@@ -45,19 +45,29 @@ def register_commands(bot):
 
     @bot.command(name="арт", aliases=["art"])
     async def cmd_art(ctx, *, query=None):
-        """!арт — случайный арт Экспик. !арт <теги> — поиск по e621."""
+        """!арт — случайный арт Экспи. !арт <теги> — поиск по e621."""
 
         if not query:
             search_variants = [
-                "expie_(gunsawian)+-rating%3Aexplicit+",
-                "casualties:_unknown+-rating%3Aexplicit+",
-                "gunsawian+-rating%3Aexplicit+",
-                "milky_(gunsawian)+-rating%3Aexplicit+",
-                "dune_(gunsawian)+-rating%3Aexplicit+"
+                "expie_(gunsawian) -rating:explicit",
+                "casualties:_unknown -rating:explicit",
+                "gunsawian -rating:explicit",
+                "milky_(gunsawian) -rating:explicit",
+                "dune_(gunsawian) -rating:explicit"
             ]
-            tags = random.choice(search_variants).replace(" ", "_")
+            tags_raw = random.choice(search_variants)
         else:
-            tags = query.replace(" ", "_")
+            # Нормализуем ввод: запятые → пробелы, разбиваем, внутри тега пробел → _
+            parts = [p.strip().replace(" ", "_") for p in query.replace(",", " ").split() if p.strip()]
+            
+            # Добавляем safe-фильтр, если пользователь сам не указал рейтинг
+            if not any("rating:" in p for p in parts):
+                parts.append("-rating:explicit")
+            
+            tags_raw = " ".join(parts)
+
+        # URL-кодируем всё: пробелы → %20, двоеточия → %3A, скобки и прочее
+        tags = urllib.parse.quote(tags_raw, safe='')
 
         async with ctx.typing():
             try:
@@ -66,7 +76,7 @@ def register_commands(bot):
 
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
-                        if resp.status != 200:
+                        if not resp.ok:
                             await ctx.reply(f"*вздрагивает* Сайт отвечает кодом {resp.status}...")
                             return
 
@@ -81,10 +91,10 @@ def register_commands(bot):
                         valid_posts = []
                         for p in posts:
                             file_data = p.get("file")
-                            if not file_data or not file_data.get("url"):
+                            if not file_data:
                                 continue
-                            img_url = file_data["url"]
-                            if img_url in seen_urls:
+                            img_url = file_data.get("url")
+                            if not img_url or img_url in seen_urls:
                                 continue
                             seen_urls.add(img_url)
                             ext = img_url.split(".")[-1].split("?")[0].lower()
@@ -100,7 +110,7 @@ def register_commands(bot):
                         image_url = post["file"]["url"]
 
                         async with session.get(image_url) as img_resp:
-                            if img_resp.status != 200:
+                            if not img_resp.ok:
                                 await ctx.reply(f"*виляет хвостом* О, смотри что нашёл!\n{image_url}")
                                 return
 
@@ -114,7 +124,7 @@ def register_commands(bot):
 
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Ой, что-то сломалось: {str(e)[:80]}")
-
+                
     @bot.command(name="ген", aliases=["gen"])
     async def cmd_generate(ctx, *, prompt=None):
         """!ген <описание> — сгенерировать картинку. Без промпта — случайный Экспи."""
