@@ -62,7 +62,7 @@ def register_commands(bot):
             
             # Добавляем safe-фильтр, если пользователь сам не указал рейтинг
             if not any("rating:" in p for p in parts):
-                parts.append("-rating:explicit")
+                parts.append("rating:safe")
             
             tags_raw = " ".join(parts)
 
