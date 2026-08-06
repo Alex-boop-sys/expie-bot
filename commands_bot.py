@@ -285,14 +285,14 @@ def register_commands(bot):
                         json=payload,
                         timeout=aiohttp.ClientTimeout(total=60)
                     ) as resp:
-                            if resp.status == 429:
-                                err_text = await resp.text()
-                                print(f"[Gemini 429] {err_text[:300]}")  # ← увидишь в логах Render
-                                await ctx.reply(
-                                    f"*вздрагивает* Gemini не пускает... "
-                                    f"Код 429, подробности в логах хозяина! 🛡️"
-                                )
-                                return
+                        if resp.status == 429:
+                            err_text = await resp.text()
+                            print(f"[Gemini 429] {err_text[:300]}")  # ← увидишь в логах Render
+                            await ctx.reply(
+                                f"*вздрагивает* Gemini не пускает... "
+                                f"Код 429, подробности в логах хозяина! 🛡️"
+                            )
+                            return
 
                         if resp.status != 200:
                             text = await resp.text()
