@@ -6,6 +6,7 @@ import random
 from api_client import ask_ai, clear_history
 from config import OWNER_ID
 import base64
+from config import GEMINI_API_KEY
 
 def register_commands(bot):
     """Регистрация всех команд бота."""
