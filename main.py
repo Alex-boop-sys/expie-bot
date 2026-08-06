@@ -43,6 +43,8 @@ bot = commands.Bot(
 
 @bot.event
 async def on_ready():
+    print(f"Всего команд загружено: {len(bot.commands)}")
+    print("Команды:", [c.name for c in bot.commands])
     activity = discord.Activity(
         type=discord.ActivityType.playing,
         name="!Экспик | Общаюсь с друзьями 🦊"

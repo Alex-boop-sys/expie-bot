@@ -244,9 +244,10 @@ def register_commands(bot):
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}`... Ой. 🛠️")
 
-    @bot.command(name="ген2")
+    print(">>> DEBUG: registering гем")
+    @bot.command(name="гем")
     async def cmd_generate_gemini(ctx, *, prompt=None):
-        """!ген2 <описание> — сгенерировать картинку через Gemini"""
+        """!гем <описание> — сгенерировать картинку через Gemini"""
 
         if not prompt:
             prompt = "solo, cute, fluffy, black melanistic fur, anthro, furry, wolf-fox hybrid, big eyes, orange sclera, big fluffy tail, orange tip tail, three ears, high quality, kawaii style, beautiful background"
