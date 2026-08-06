@@ -5,6 +5,7 @@ import urllib.parse
 import random
 from api_client import ask_ai, clear_history
 from config import OWNER_ID
+import base64
 
 def register_commands(bot):
     """Регистрация всех команд бота."""
@@ -241,6 +242,104 @@ def register_commands(bot):
                 await ctx.reply(f"*вздрагивает* Сеть хрипит: `{str(e)[:100]}`... Попробуй позже! 📡")
             except Exception as e:
                 await ctx.reply(f"*вздрагивает* Что-то сломалось: `{str(e)[:100]}`... Ой. 🛠️")
+
+    @bot.command(name="ген2")
+    async def cmd_generate_gemini(ctx, *, prompt=None):
+        """!ген2 <описание> — сгенерировать картинку через Gemini"""
+
+        if not prompt:
+            prompt = "solo, cute, fluffy, black melanistic fur, anthro, furry, wolf-fox hybrid, big eyes, orange sclera, big fluffy tail, orange tip tail, three ears, high quality, kawaii style, beautiful background"
+
+        if not GEMINI_API_KEY:
+            await ctx.reply("*прижимает уши* Ключ Gemini не настроен... Скажи хозяину! 🛠️")
+            return
+
+        enhanced = (
+            f"{prompt}, furry art, digital illustration, "
+            "high quality, detailed fur, soft lighting, cute expression"
+        )
+
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.5-flash-image:generateContent?key={GEMINI_API_KEY}"
+        )
+
+        payload = {
+            "contents": [{
+                "role": "user",
+                "parts": [{"text": enhanced}]
+            }],
+            "generationConfig": {
+                "responseModalities": ["TEXT", "IMAGE"],
+                "temperature": 0.85
+            }
+        }
+
+        async with ctx.typing():
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as resp:
+                        if resp.status == 429:
+                            await ctx.reply(
+                                "*вздрагивает* Слишком быстро! "
+                                "Лимит Gemini... Попробуй через минуту! ⏳"
+                            )
+                            return
+
+                        if resp.status != 200:
+                            text = await resp.text()
+                            await ctx.reply(
+                                f"*вздрагивает* Gemini отвечает кодом {resp.status}: "
+                                f"{text[:100]}..."
+                            )
+                            return
+
+                        data = await resp.json()
+                        candidates = data.get("candidates", [])
+                        if not candidates:
+                            await ctx.reply(
+                                "*наклоняет голову* Gemini ничего не нарисовал... 🫥"
+                            )
+                            return
+
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        image_part = None
+                        for part in parts:
+                            if "inlineData" in part:
+                                image_part = part["inlineData"]
+                                break
+
+                        if not image_part:
+                            await ctx.reply(
+                                "*наклоняет голову* В ответе нет картинки... "
+                                "Только текст? 🫥"
+                            )
+                            return
+
+                        image_bytes = base64.b64decode(image_part["data"])
+                        mime = image_part.get("mimeType", "image/png")
+                        ext = mime.split("/")[-1]
+                        if ext == "jpeg":
+                            ext = "jpg"
+
+                        file = discord.File(
+                            fp=io.BytesIO(image_bytes),
+                            filename=f"expie_gemini.{ext}"
+                        )
+                        await ctx.reply(
+                            content=f"*виляет хвостом* О, я нарисовал! "
+                            f"По запросу: `{prompt[:300]}`",
+                            file=file
+                        )
+
+            except Exception as e:
+                await ctx.reply(
+                    f"*вздрагивает* Что-то сломалось: {str(e)[:80]} 🛠️"
+                )
 
     @bot.command(name="удали")
     async def cmd_delete(ctx, channel_id: str = None, message_id: str = None):
