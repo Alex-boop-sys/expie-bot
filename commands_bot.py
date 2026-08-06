@@ -6,7 +6,7 @@ import random
 from api_client import ask_ai, clear_history
 from config import OWNER_ID
 import base64
-from config import GEMINI_API_KEY
+from config import GEMINI_API_KEY, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN
 
 def register_commands(bot):
     """Регистрация всех команд бота."""
@@ -518,4 +518,61 @@ def register_commands(bot):
         ]
 
         await ctx.reply(random.choice(phrases))
+
+    @bot.command(name="ген3")
+    async def cmd_generate_cf(ctx, *, prompt=None):
+        """!ген3 <описание> — сгенерировать картинку через Cloudflare AI"""
+
+        if not prompt:
+            prompt = "cute fluffy anthro fox character, digital art, soft lighting, high quality"
+
+        if not CLOUDFLARE_ACCOUNT_ID or not CLOUDFLARE_API_TOKEN:
+            await ctx.reply("*прижимает уши* Cloudflare не настроен... Скажи хозяину! 🛠️")
+            return
+
+        model = "@cf/black-forest-labs/flux-1-schnell"
+        url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
+
+        payload = {
+            "prompt": prompt,
+            "num_steps": 4,  # 4-8 для schnell, чем больше — тем лучше качество, но медленнее
+            "height": 1024,
+            "width": 1024
+        }
+
+        async with ctx.typing():
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url,
+                        headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=30)
+                    ) as resp:
+                        if resp.status == 429:
+                            await ctx.reply("*вздрагивает* Лимит Cloudflare на сегодня исчерпан! Попробуй завтра! ⏳")
+                            return
+
+                        if resp.status != 200:
+                            text = await resp.text()
+                            await ctx.reply(f"*вздрагивает* Cloudflare отвечает {resp.status}: {text[:100]}")
+                            return
+
+                        data = await resp.json()
+
+                        # Ответ приходит в base64
+                        image_b64 = data.get("result", {}).get("image")
+                        if not image_b64:
+                            await ctx.reply("*наклоняет голову* В ответе нет картинки... 🫥")
+                            return
+
+                        image_bytes = base64.b64decode(image_b64)
+                        file = discord.File(fp=io.BytesIO(image_bytes), filename="expie_cf.png")
+                        await ctx.reply(
+                            content=f"*виляет хвостом* Нарисовал через Cloudflare! По запросу: `{prompt[:300]}`",
+                            file=file
+                        )
+
+            except Exception as e:
+                await ctx.reply(f"*вздрагивает* Ой: {str(e)[:80]} 🛠️")
         
