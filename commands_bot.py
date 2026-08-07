@@ -530,15 +530,15 @@ def register_commands(bot):
             await ctx.reply("*прижимает уши* Cloudflare не настроен... Скажи хозяину! 🛠️")
             return
 
-        model = "@cf/bytedance/stable-diffusion-xl-lightning"
+        model = "@cf/lykon/dreamshaper-8-lcm"
         url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
 
         payload = {
             "prompt": prompt,
-            "height": 1024,
-            "width": 1024,
-            "num_steps": 20,
-            "guidance": 7,
+            "height": 512,
+            "width": 512,
+            "num_steps": 8,
+            #"guidance": 7,
             "negative_prompt": "blurry, low quality, bad hands, signature"
         }
 
