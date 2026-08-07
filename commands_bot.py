@@ -521,10 +521,10 @@ def register_commands(bot):
 
     @bot.command(name="ген3")
     async def cmd_generate_cf(ctx, *, prompt=None):
-        """!ген3 <описание> — сгенерировать картинку через Cloudflare AI"""
+        """!ген3 <описание> — сгенерировать картинку через Cloudflare SDXL"""
 
         if not prompt:
-            prompt = "cute fluffy anthro fox character, digital art, soft lighting, high quality"
+            prompt = "cute fluffy anthro fox character, digital art, soft lighting, high quality, detailed fur"
 
         if not CLOUDFLARE_ACCOUNT_ID or not CLOUDFLARE_API_TOKEN:
             await ctx.reply("*прижимает уши* Cloudflare не настроен... Скажи хозяину! 🛠️")
@@ -533,11 +533,14 @@ def register_commands(bot):
         model = "@cf/stabilityai/stable-diffusion-xl-base-1.0"
         url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
 
+        # SDXL payload: просто prompt + опциональные параметры
         payload = {
             "prompt": prompt,
-            "num_steps": 20,
             "height": 1024,
-            "width": 1024
+            "width": 1024,
+            # "num_steps": 20,  # по умолчанию 20, можно убрать для скорости
+            # "guidance": 7.5,  # по умолчанию 7.5
+            # "negative_prompt": "blurry, low quality"  # если нужно
         }
 
         async with ctx.typing():
@@ -547,7 +550,7 @@ def register_commands(bot):
                         url,
                         headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=30)
+                        timeout=aiohttp.ClientTimeout(total=45)  # SDXL чуть медленнее Flux
                     ) as resp:
                         if resp.status == 429:
                             await ctx.reply("*вздрагивает* Лимит Cloudflare на сегодня исчерпан! Попробуй завтра! ⏳")
@@ -560,16 +563,21 @@ def register_commands(bot):
 
                         data = await resp.json()
 
-                        # Ответ приходит в base64
+                        # Проверяем success
+                        if not data.get("success"):
+                            err = data.get("errors", [{}])[0]
+                            await ctx.reply(f"*вздрагивает* Ошибка Cloudflare: {err.get('message', 'unknown')}")
+                            return
+
                         image_b64 = data.get("result", {}).get("image")
                         if not image_b64:
                             await ctx.reply("*наклоняет голову* В ответе нет картинки... 🫥")
                             return
 
                         image_bytes = base64.b64decode(image_b64)
-                        file = discord.File(fp=io.BytesIO(image_bytes), filename="expie_cf.png")
+                        file = discord.File(fp=io.BytesIO(image_bytes), filename="expie_sdxl.png")
                         await ctx.reply(
-                            content=f"*виляет хвостом* Нарисовал через Cloudflare! По запросу: `{prompt[:300]}`",
+                            content=f"*виляет хвостом* Нарисовал через SDXL! По запросу: `{prompt[:300]}`",
                             file=file
                         )
 
