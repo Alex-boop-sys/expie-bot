@@ -533,14 +533,10 @@ def register_commands(bot):
         model = "@cf/stabilityai/stable-diffusion-xl-base-1.0"
         url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
 
-        # SDXL payload: просто prompt + опциональные параметры
         payload = {
             "prompt": prompt,
             "height": 1024,
-            "width": 1024,
-            # "num_steps": 20,  # по умолчанию 20, можно убрать для скорости
-            # "guidance": 7.5,  # по умолчанию 7.5
-            # "negative_prompt": "blurry, low quality"  # если нужно
+            "width": 1024
         }
 
         async with ctx.typing():
@@ -550,7 +546,7 @@ def register_commands(bot):
                         url,
                         headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
                         json=payload,
-                        timeout=aiohttp.ClientTimeout(total=45)  # SDXL чуть медленнее Flux
+                        timeout=aiohttp.ClientTimeout(total=45)
                     ) as resp:
                         if resp.status == 429:
                             await ctx.reply("*вздрагивает* Лимит Cloudflare на сегодня исчерпан! Попробуй завтра! ⏳")
@@ -561,9 +557,21 @@ def register_commands(bot):
                             await ctx.reply(f"*вздрагивает* Cloudflare отвечает {resp.status}: {text[:100]}")
                             return
 
+                        content_type = resp.headers.get("Content-Type", "")
+
+                        # Вариант 1: картинка напрямую (SDXL)
+                        if "image" in content_type:
+                            image_bytes = await resp.read()
+                            file = discord.File(fp=io.BytesIO(image_bytes), filename="expie_sdxl.png")
+                            await ctx.reply(
+                                content=f"*виляет хвостом* Нарисовал через SDXL! По запросу: `{prompt[:300]}`",
+                                file=file
+                            )
+                            return
+
+                        # Вариант 2: JSON с base64 (Flux и другие)
                         data = await resp.json()
 
-                        # Проверяем success
                         if not data.get("success"):
                             err = data.get("errors", [{}])[0]
                             await ctx.reply(f"*вздрагивает* Ошибка Cloudflare: {err.get('message', 'unknown')}")
@@ -582,5 +590,5 @@ def register_commands(bot):
                         )
 
             except Exception as e:
-                await ctx.reply(f"*вздрагивает* Ой: {str(e)[:80]} 🛠️")
+                await ctx.reply(f"*вздрагивает* Ой: {str(e)[:300]} 🛠️")
         
