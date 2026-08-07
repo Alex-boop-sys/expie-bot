@@ -537,7 +537,7 @@ def register_commands(bot):
             "prompt": prompt,
             "height": 512,
             "width": 512,
-            "num_steps": 25,
+            "num_steps": 20,
             #"guidance": 7,
             "negative_prompt": "blurry, low quality, bad hands, signature"
         }
