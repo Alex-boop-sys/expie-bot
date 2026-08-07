@@ -530,7 +530,7 @@ def register_commands(bot):
             await ctx.reply("*прижимает уши* Cloudflare не настроен... Скажи хозяину! 🛠️")
             return
 
-        model = "@cf/stabilityai/stable-diffusion-xl-base-1.0"
+        model = "@cf/bytedance/stable-diffusion-xl-lightning"
         url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
 
         payload = {
