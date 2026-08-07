@@ -535,8 +535,8 @@ def register_commands(bot):
 
         payload = {
             "prompt": prompt,
-            "height": 512,
-            "width": 512,
+            "height": 1024,
+            "width": 1024,
             "num_steps": 20,
             #"guidance": 7,
             "negative_prompt": "blurry, low quality, bad hands, signature"
