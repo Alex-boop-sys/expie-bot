@@ -530,12 +530,12 @@ def register_commands(bot):
             await ctx.reply("*прижимает уши* Cloudflare не настроен... Скажи хозяину! 🛠️")
             return
 
-        model = "@cf/black-forest-labs/flux-1-schnell"
+        model = "@cf/stabilityai/stable-diffusion-xl-base-1.0"
         url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
 
         payload = {
             "prompt": prompt,
-            "num_steps": 4,  # 4-8 для schnell, чем больше — тем лучше качество, но медленнее
+            "num_steps": 20,
             "height": 1024,
             "width": 1024
         }
