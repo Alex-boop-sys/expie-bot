@@ -1,24 +1,64 @@
-import asyncio
+import discord
+from discord.ext import commands
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from config import DISCORD_TOKEN
+from commands_bot import register_commands
+from handlers import register_handlers
 
-from Cogs.commands_bot import register_slash_commands
-from config import log, env, bot
-from Cogs.bot import run_bot
-from Cogs.bot import register_handlers
-from Cogs.utils import utils
 
-async def main():
-    register_slash_commands()
-    bot_task = asyncio.create_task(run_bot())
-    try:
-        await bot_task
-    except asyncio.CancelledError:
-        log.info("Завершение работы")
-    except Exception:
-        log.exception("Ошибка запуска")
+# ============ ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ДЛЯ RENDER ============
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Expie is alive!")
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
+
+def run_dummy_server():
+    server = HTTPServer(("0.0.0.0", 10000), DummyHandler)
+    server.serve_forever()
+
+
+threading.Thread(target=run_dummy_server, daemon=True).start()
+print("🌐 Фейковый сервер запущен на порту 10000 для Render")
+
+
+# ============ BOT SETUP ============
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.presences = True
+
+bot = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    case_insensitive=True
+)
+
+
+@bot.event
+async def on_ready():
+    print(f"Всего команд загружено: {len(bot.commands)}")
+    print("Команды:", [c.name for c in bot.commands])
+    activity = discord.Activity(
+        type=discord.ActivityType.playing,
+        name="!Экспик | Общаюсь с друзьями 🦊"
+    )
+    await bot.change_presence(activity=activity)
+    print(f"🦊 Экспи на месте! Логин: {bot.user}")
+    print("------")
+
+
+# ============ REGISTER MODULES ============
+register_commands(bot)
+register_handlers(bot)
+
+
+# ============ RUN ============
 if __name__ == "__main__":
-    utils.check_tokens()
-    register_handlers()
-    asyncio.run(main())
-
-
+    bot.run(DISCORD_TOKEN)
