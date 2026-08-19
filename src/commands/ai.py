@@ -32,7 +32,8 @@ def register(bot_instance: commands.Bot) -> None:
     async def forget(interaction: discord.Interaction) -> None:
         """Очищает историю диалога текущего пользователя."""
         user_id = interaction.user.id
-        if clear_history(user_id):
+        # clear_history теперь async функция
+        if await clear_history(user_id):
             await interaction.response.send_message(
                 "\\*Моргает\\* Э-э-э... похоже, теперь я ничего о тебе не помню."
             )
