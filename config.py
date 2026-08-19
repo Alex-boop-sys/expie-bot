@@ -35,6 +35,15 @@ IS_SERVER: bool = platform.system().lower() == "linux"
 class Env:
     """Контейнер секретов из .env. Имеет __iter__ для check_tokens()."""
 
+    # Ключи, которые нельзя логировать (токены, API-ключи)
+    SENSITIVE_KEYS = frozenset({
+        "groq_api_key",
+        "openrouter_api_key",
+        "cloudflare_account_id",
+        "cloudflare_api_token",
+        "discord_token",
+    })
+
     def __init__(self) -> None:
         # API-ключи LLM-провайдеров
         self.groq_api_key: str | None = os.getenv("GROQ_API_KEY")
@@ -50,10 +59,19 @@ class Env:
         self.co_owner_id: str | None = os.getenv("CO_OWNER_ID")
 
     def __iter__(self):
-        """Итерация по (имя, значение) для проверки наличия токенов."""
+        """Итерация по (имя, значение) для проверки наличия токенов.
+        Исключает чувствительные ключи (токены, API-ключи) из логирования."""
         for attr_name in dir(self):
             if not attr_name.startswith("_") and not callable(getattr(self, attr_name)):
+                # Пропускаем служебные атрибуты и чувствительные данные
+                if attr_name in self.SENSITIVE_KEYS:
+                    continue
                 yield attr_name, getattr(self, attr_name)
+
+    def get_token(self, key: str) -> str | None:
+        """Безопасное получение токена по имени ключа.
+        Используйте этот метод вместо прямого доступа к атрибутам."""
+        return getattr(self, key, None)
 
 
 env = Env()

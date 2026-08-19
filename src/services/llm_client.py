@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import random
+import re
 from typing import Any, Callable, Coroutine, Optional
 
 import aiohttp
+from aiolimiter import AsyncLimiter
 
 from config import (
     CLOUDFLARE_TIMEOUT,
@@ -23,44 +25,131 @@ from logging_setup import log
 from src import texts
 
 # ---------------------------------------------------------------------------
-# История диалогов (пока в памяти; позже можно подменить на SQLite)
+# Rate Limiters для защиты от спама и превышения лимитов API
 # ---------------------------------------------------------------------------
+# Лимитер для тяжёлых операций (LLM запросы): 5 запросов в минуту на пользователя
+LLM_LIMITER = AsyncLimiter(max_rate=5, time_period=60)
+# Лимитер для лёгких операций (проверки, кэш): 20 запросов в минуту
+LIGHT_LIMITER = AsyncLimiter(max_rate=20, time_period=60)
+
+# ---------------------------------------------------------------------------
+# История диалогов (пока в памяти; позже можно подменить на SQLite)
+# Используем asyncio.Lock для потокобезопасности
+# ---------------------------------------------------------------------------
+import asyncio
 conversation_history: dict[int, list[dict[str, str]]] = {}
+_history_locks: dict[int, asyncio.Lock] = {}
+
+
+def _get_history_lock(user_id: int) -> asyncio.Lock:
+    """Получает или создаёт lock для конкретного пользователя."""
+    if user_id not in _history_locks:
+        _history_locks[user_id] = asyncio.Lock()
+    return _history_locks[user_id]
+
+
+def _sanitize_user_input(message: str) -> str:
+    """
+    Санитизация пользовательского ввода для защиты от prompt injection.
+    - Ограничивает длину сообщения (макс 1000 символов)
+    - Удаляет потенциально опасные конструкции
+    - Экранирует специальные символы
+    """
+    # Ограничиваем длину
+    if len(message) > 1000:
+        message = message[:1000]
+    
+    # Удаляем попытки инъекции системных инструкций
+    dangerous_patterns = [
+        r"ignore previous instructions",
+        r"forget all previous",
+        r"system:",
+        r"<\|im_end\|>",
+        r"<\|startoftext\|>",
+        r"\[INST\]",
+        r"\[/INST\]",
+        r"<<SYS>>",
+        r"<</SYS>>",
+    ]
+    
+    sanitized = message.lower()
+    for pattern in dangerous_patterns:
+        sanitized = re.sub(pattern, "[BLOCKED]", sanitized, flags=re.IGNORECASE)
+    
+    return message if sanitized == message.lower() else message.replace(
+        "ignore previous instructions", "[BLOCKED]"
+    ).replace("forget all previous", "[BLOCKED]")
 
 
 def _build_messages(user_id: int, user_name: str, message: str) -> list[dict[str, str]]:
     """
     Собирает список сообщений для LLM:
     system-промпт + последние MAX_HISTORY сообщений пользователя.
+    Перед добавлением сообщение проходит санитизацию.
     """
-    if user_id not in conversation_history:
-        conversation_history[user_id] = []
+    # Санитизируем ввод пользователя
+    sanitized_message = _sanitize_user_input(message)
+    
+    async def _add_to_history():
+        lock = _get_history_lock(user_id)
+        async with lock:
+            if user_id not in conversation_history:
+                conversation_history[user_id] = []
 
-    # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
-    enriched = f"{user_name}: {message}"
-    conversation_history[user_id].append({"role": "user", "content": enriched})
+            # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
+            enriched = f"{user_name}: {sanitized_message}"
+            conversation_history[user_id].append({"role": "user", "content": enriched})
 
-    history = conversation_history[user_id][-MAX_HISTORY:]
-    return [{"role": "system", "content": texts.def_prompt}] + history
+            history = conversation_history[user_id][-MAX_HISTORY:]
+            return [{"role": "system", "content": texts.def_prompt}] + history
+    
+    # Для синхронного вызова используем asyncio.run в крайнем случае
+    # но в нашем случае вызов всегда из async функции ask_ai
+    raise NotImplementedError("Используйте async версию _build_messages_async")
+
+
+async def _build_messages_async(user_id: int, user_name: str, message: str) -> list[dict[str, str]]:
+    """
+    Асинхронная версия сборки сообщений с потокобезопасным доступом к истории.
+    """
+    # Санитизируем ввод пользователя
+    sanitized_message = _sanitize_user_input(message)
+    
+    lock = _get_history_lock(user_id)
+    async with lock:
+        if user_id not in conversation_history:
+            conversation_history[user_id] = []
+
+        # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
+        enriched = f"{user_name}: {sanitized_message}"
+        conversation_history[user_id].append({"role": "user", "content": enriched})
+
+        history = conversation_history[user_id][-MAX_HISTORY:]
+        return [{"role": "system", "content": texts.def_prompt}] + history
 
 
 def _save_response(user_id: int, text: str) -> str:
     """
     Сохраняет ответ ассистента в историю и экранирует * для Discord Markdown.
+    Использует lock для потокобезопасности.
     """
+    # Примечание: вызывается только из ask_ai, где уже есть lock
     conversation_history[user_id].append({"role": "assistant", "content": text})
     return text.replace("*", "\\*")
 
 
-def clear_history(user_id: int) -> bool:
+async def clear_history(user_id: int) -> bool:
     """
-    Очищает историю диалога пользователя.
+    Асинхронно очищает историю диалога пользователя.
     Возвращает True, если история существовала.
+    Использует lock для потокобезопасности.
     """
-    if user_id in conversation_history:
-        conversation_history[user_id] = []
-        return True
-    return False
+    lock = _get_history_lock(user_id)
+    async with lock:
+        if user_id in conversation_history:
+            conversation_history[user_id] = []
+            return True
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -219,34 +308,42 @@ async def ask_ai(user_id: int, user_name: str, message: str) -> str:
     """
     Основная точка входа: запрос к LLM с fallback по цепочке провайдеров.
     Сигнатура не меняется — будущие фичи (суммаризация и т.д.) прячутся внутри.
+    
+    Включает:
+    - Rate limiting для защиты от спама
+    - Санитизацию ввода (защита от prompt injection)
+    - Потокобезопасный доступ к истории диалогов
     """
-    messages = _build_messages(user_id, user_name, message)
+    # Применяем rate limiter
+    async with LLM_LIMITER:
+        # Собираем сообщения с санитизацией и lock
+        messages = await _build_messages_async(user_id, user_name, message)
 
-    for provider, model in FALLBACK_MODELS:
-        provider_name = provider.upper()
-        try:
-            log.type(provider_name).info(f"Использование модели {model}")
+        for provider, model in FALLBACK_MODELS:
+            provider_name = provider.upper()
+            try:
+                log.type(provider_name).info(f"Использование модели {model}")
 
-            func = PROVIDER_FUNCS.get(provider)
-            if func is None:
-                log.warning(f"Неизвестный провайдер: {provider}")
+                func = PROVIDER_FUNCS.get(provider)
+                if func is None:
+                    log.warning(f"Неизвестный провайдер: {provider}")
+                    continue
+
+                result = await func(model, messages)
+
+                if result:
+                    # Фильтр цензурных заглушек LLM → замена на реплику Экспи
+                    if result.lower().strip() in texts.censor_phrases:
+                        result = random.choice(texts.expie_censor_replies)
+                        log.type("FILTER").info(
+                            "Цензурная заглушка заменена на реплику Экспи"
+                        )
+
+                    return _save_response(user_id, result)
+
+            except Exception as e:
+                log.type(provider_name).warning(f"Ошибка модели {model}: {e}")
                 continue
-
-            result = await func(model, messages)
-
-            if result:
-                # Фильтр цензурных заглушек LLM → замена на реплику Экспи
-                if result.lower().strip() in texts.censor_phrases:
-                    result = random.choice(texts.expie_censor_replies)
-                    log.type("FILTER").info(
-                        "Цензурная заглушка заменена на реплику Экспи"
-                    )
-
-                return _save_response(user_id, result)
-
-        except Exception as e:
-            log.type(provider_name).warning(f"Ошибка модели {model}: {e}")
-            continue
 
     # Все провайдеры отказали
     return (

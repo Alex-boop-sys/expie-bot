@@ -7,3 +7,4 @@ aiohttp~=3.13.5
 fsvlog~=0.3.2
 dotenv~=0.9.9
 python-dotenv~=1.2.2
+aiolimiter>=1.1.0
