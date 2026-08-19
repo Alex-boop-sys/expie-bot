@@ -90,9 +90,10 @@ def _check_root_command(
 ) -> Trigger | None:
     """
     Проверяет и обрабатывает административную команду root#.
+    Команда должна начинаться с "Экспи" (или другого имени бота) + "root#" + команда.
 
     Returns:
-        Trigger с action="admin" если это команда,
+        Trigger с action="admin" если это команда от владельца,
         Trigger с action="admin_denied" если нет прав,
         None если это не команда root#.
     """

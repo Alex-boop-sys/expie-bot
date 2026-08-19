@@ -152,7 +152,7 @@ class Handlers:
 
     @staticmethod
     async def _handle_trigger(
-        trigger, message: discord.Message, original_text: str
+        trigger: Trigger, message: discord.Message, original_text: str
     ) -> None:
         """
         Обрабатывает сработавший триггер.
@@ -174,17 +174,11 @@ class Handlers:
 
         # 2. Административная команда (root#)
         if trigger.action == "admin":
+            from src.commands.admin import handle_admin_command
+
             command = trigger.admin_command
-            if command == "restart":
-                await message.reply(
-                    "⚙️ Команда перезагрузки принята. (Заглушка: функционал в разработке)"
-                )
-            elif command == "delete":
-                await message.reply(
-                    "🗑️ Команда удаления принята. (Заглушка: функционал в разработке)"
-                )
-            else:
-                await message.reply(f"Неизвестная админ-команда: {command}")
+            response = await handle_admin_command(command)
+            await message.reply(response)
             return
 
         # 3. Генерация изображения

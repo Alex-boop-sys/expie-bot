@@ -48,6 +48,7 @@ pic_comments: list[str] = _phrases["pic_comments"]
 hug_pleased: list[str] = _phrases["hug_pleased"]
 censor_phrases: list[str] = _phrases["censor_phrases"]
 expie_censor_replies: list[str] = _phrases["expie_censor_replies"]
+admin_responses: dict[str, str] = _phrases["admin_responses"]
 
 _couple_phrases: list[str] = _phrases["couple_phrases"]
 _hug_phrases: list[str] = _phrases["hug_phrases"]
