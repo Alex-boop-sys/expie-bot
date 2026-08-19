@@ -40,6 +40,9 @@ target/
 .DS_Store
 Thumbs.db
 
+# SQLite
+.db
+
 # Dependencies
 node_modules/
 ```
