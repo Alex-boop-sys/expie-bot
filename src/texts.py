@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import os
 import random
 from pathlib import Path
 
@@ -71,26 +70,9 @@ def hug(mention: str) -> str:
 
 # ---------------------------------------------------------------------------
 # NSFW-паттерны (regex — остаётся в коде, а не в JSON)
+# временно убраны, позже список будет расширен
 # ---------------------------------------------------------------------------
 nsfw_patterns: list[str] = [
-    r"\bnsfw\b",
-    r"\bexplicit\b",
-    r"\bporn\b",
-    r"\bsex(?:ual)?\b",
-    r"\bnude\b",
-    r"\bnaked\b",
-    r"\bpenis\b",
-    r"\bvagina\b",
-    r"\bbreasts?\b",
-    r"\bnipple\b",
-    r"\berection\b",
-    r"\borgasm\b",
-    r"\bhentai\b",
-    r"\bgore\b",
-    r"\bviolence\b",
-    r"\bcum\b",
-    r"\bsemen\b",
-    r"\b\+18\b",
     r"\b18\+\b",
     r"\bxxx\b",
 ]
