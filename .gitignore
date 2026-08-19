@@ -40,8 +40,21 @@ target/
 .DS_Store
 Thumbs.db
 
-# SQLite
-.db
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# SQLite временные файлы
+*.db-journal
+*.sqlite-journal
+*.sqlite3-journal
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
 
 # Dependencies
 node_modules/
