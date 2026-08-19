@@ -1,6 +1,6 @@
 """
 Клиент LLM с fallback-цепочкой провайдеров.
-Бывший api_client.py. История диалогов пока в памяти (dict).
+Бывший api_client.py. История диалогов хранится в SQLite базе данных.
 Интерфейс ask_ai() не меняется — будущая суммаризация/факты спрячутся сюда.
 """
 
@@ -23,6 +23,7 @@ from config import (
 )
 from logging_setup import log
 from src import texts
+from src.db import history as db_history
 
 # ---------------------------------------------------------------------------
 # Rate Limiters для защиты от спама и превышения лимитов API
@@ -32,20 +33,14 @@ LLM_LIMITER = AsyncLimiter(max_rate=5, time_period=60)
 # Лимитер для лёгких операций (проверки, кэш): 20 запросов в минуту
 LIGHT_LIMITER = AsyncLimiter(max_rate=20, time_period=60)
 
-# ---------------------------------------------------------------------------
-# История диалогов (пока в памяти; позже можно подменить на SQLite)
-# Используем asyncio.Lock для потокобезопасности
-# ---------------------------------------------------------------------------
-import asyncio
-conversation_history: dict[int, list[dict[str, str]]] = {}
-_history_locks: dict[int, asyncio.Lock] = {}
 
-
-def _get_history_lock(user_id: int) -> asyncio.Lock:
-    """Получает или создаёт lock для конкретного пользователя."""
-    if user_id not in _history_locks:
-        _history_locks[user_id] = asyncio.Lock()
-    return _history_locks[user_id]
+async def init_llm_client() -> None:
+    """
+    Инициализирует клиент LLM и базу данных для истории.
+    Вызывается один раз при старте бота.
+    """
+    await db_history.init_history_table()
+    log.type("LLM").info("Клиент LLM инициализирован")
 
 
 def _sanitize_user_input(message: str) -> str:
@@ -81,75 +76,44 @@ def _sanitize_user_input(message: str) -> str:
     ).replace("forget all previous", "[BLOCKED]")
 
 
-def _build_messages(user_id: int, user_name: str, message: str) -> list[dict[str, str]]:
-    """
-    Собирает список сообщений для LLM:
-    system-промпт + последние MAX_HISTORY сообщений пользователя.
-    Перед добавлением сообщение проходит санитизацию.
-    """
-    # Санитизируем ввод пользователя
-    sanitized_message = _sanitize_user_input(message)
-    
-    async def _add_to_history():
-        lock = _get_history_lock(user_id)
-        async with lock:
-            if user_id not in conversation_history:
-                conversation_history[user_id] = []
-
-            # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
-            enriched = f"{user_name}: {sanitized_message}"
-            conversation_history[user_id].append({"role": "user", "content": enriched})
-
-            history = conversation_history[user_id][-MAX_HISTORY:]
-            return [{"role": "system", "content": texts.def_prompt}] + history
-    
-    # Для синхронного вызова используем asyncio.run в крайнем случае
-    # но в нашем случае вызов всегда из async функции ask_ai
-    raise NotImplementedError("Используйте async версию _build_messages_async")
-
-
 async def _build_messages_async(user_id: int, user_name: str, message: str) -> list[dict[str, str]]:
     """
-    Асинхронная версия сборки сообщений с потокобезопасным доступом к истории.
+    Асинхронная версия сборки сообщений с использованием SQLite для истории.
     """
     # Санитизируем ввод пользователя
     sanitized_message = _sanitize_user_input(message)
     
-    lock = _get_history_lock(user_id)
-    async with lock:
-        if user_id not in conversation_history:
-            conversation_history[user_id] = []
+    # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
+    enriched = f"{user_name}: {sanitized_message}"
+    
+    # Добавляем сообщение пользователя в базу данных
+    await db_history.add_message(user_id, "user", enriched)
+    
+    # Получаем последние MAX_HISTORY сообщений из базы
+    history = await db_history.get_history(user_id, limit=MAX_HISTORY)
+    
+    return [{"role": "system", "content": texts.def_prompt}] + history
 
-        # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
-        enriched = f"{user_name}: {sanitized_message}"
-        conversation_history[user_id].append({"role": "user", "content": enriched})
 
-        history = conversation_history[user_id][-MAX_HISTORY:]
-        return [{"role": "system", "content": texts.def_prompt}] + history
-
-
-def _save_response(user_id: int, text: str) -> str:
+async def _save_response_async(user_id: int, text: str) -> str:
     """
-    Сохраняет ответ ассистента в историю и экранирует * для Discord Markdown.
-    Использует lock для потокобезопасности.
+    Сохраняет ответ ассистента в базу данных и экранирует * для Discord Markdown.
     """
-    # Примечание: вызывается только из ask_ai, где уже есть lock
-    conversation_history[user_id].append({"role": "assistant", "content": text})
-    return text.replace("*", "\\*")
+    # Экранируем звёздочки для Discord
+    escaped_text = text.replace("*", "\\*")
+    
+    # Сохраняем в базу данных
+    await db_history.add_message(user_id, "assistant", escaped_text)
+    
+    return escaped_text
 
 
 async def clear_history(user_id: int) -> bool:
     """
-    Асинхронно очищает историю диалога пользователя.
+    Асинхронно очищает историю диалога пользователя в базе данных.
     Возвращает True, если история существовала.
-    Использует lock для потокобезопасности.
     """
-    lock = _get_history_lock(user_id)
-    async with lock:
-        if user_id in conversation_history:
-            conversation_history[user_id] = []
-            return True
-        return False
+    return await db_history.clear_history(user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -312,11 +276,11 @@ async def ask_ai(user_id: int, user_name: str, message: str) -> str:
     Включает:
     - Rate limiting для защиты от спама
     - Санитизацию ввода (защита от prompt injection)
-    - Потокобезопасный доступ к истории диалогов
+    - Сохранение истории в SQLite базе данных
     """
     # Применяем rate limiter
     async with LLM_LIMITER:
-        # Собираем сообщения с санитизацией и lock
+        # Собираем сообщения с санитизацией
         messages = await _build_messages_async(user_id, user_name, message)
 
         for provider, model in FALLBACK_MODELS:
@@ -339,7 +303,8 @@ async def ask_ai(user_id: int, user_name: str, message: str) -> str:
                             "Цензурная заглушка заменена на реплику Экспи"
                         )
 
-                    return _save_response(user_id, result)
+                    # Сохраняем ответ в базу данных
+                    return await _save_response_async(user_id, result)
 
             except Exception as e:
                 log.type(provider_name).warning(f"Ошибка модели {model}: {e}")
