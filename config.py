@@ -36,13 +36,15 @@ class Env:
     """Контейнер секретов из .env. Имеет __iter__ для check_tokens()."""
 
     # Ключи, которые нельзя логировать (токены, API-ключи)
-    SENSITIVE_KEYS = frozenset({
-        "groq_api_key",
-        "openrouter_api_key",
-        "cloudflare_account_id",
-        "cloudflare_api_token",
-        "discord_token",
-    })
+    SENSITIVE_KEYS = frozenset(
+        {
+            "groq_api_key",
+            "openrouter_api_key",
+            "cloudflare_account_id",
+            "cloudflare_api_token",
+            "discord_token",
+        }
+    )
 
     def __init__(self) -> None:
         # API-ключи LLM-провайдеров
@@ -89,7 +91,7 @@ RESOURCES_DIR: str = os.path.join(ROOT_DIR, "resources")
 # ---------------------------------------------------------------------------
 # Константы бота
 # ---------------------------------------------------------------------------
-BOT_VER: str = "0.4.1 [INDEV]"
+BOT_VER: str = "0.4.2 [INDEV]"
 
 # Максимальная длина истории диалога (сообщений) на одного пользователя
 # для передачи в API LLM (краткосрочная память)

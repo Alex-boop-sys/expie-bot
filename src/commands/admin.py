@@ -7,11 +7,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 from config import env

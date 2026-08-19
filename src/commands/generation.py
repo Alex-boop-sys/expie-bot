@@ -14,7 +14,6 @@ from logging_setup import log
 from src.services.image_gen import generate
 from src.utils import have_nsfw
 
-
 # Промпт по умолчанию (когда пользователь ничего не указал)
 _DEFAULT_PROMPT = (
     "solo, cute, fluffy, black melanistic fur, anthro, furry, "
@@ -29,9 +28,7 @@ def register(bot_instance: commands.Bot) -> None:
 
     @bot_instance.tree.command(name="ген", description="Сгенерировать картинку с Экспи")
     @app_commands.describe(prompt="Описание того, что нарисовать")
-    async def cmd_generate(
-        interaction: discord.Interaction, prompt: str = None
-    ) -> None:
+    async def cmd_generate(interaction: discord.Interaction, prompt: str = None) -> None:
         if not prompt:
             prompt = _DEFAULT_PROMPT
 
@@ -69,6 +66,6 @@ def register(bot_instance: commands.Bot) -> None:
         except Exception as e:
             log.exception("Ошибка при генерации изображения")
             await interaction.followup.send(
-                f'\\*вздрагивает\\* Ой, что-то сломалось. Надо спросить у создателя, '
+                f"\\*вздрагивает\\* Ой, что-то сломалось. Надо спросить у создателя, "
                 f'что значит "{str(e)[:200]}"...'
             )

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Optional
 
 import aiohttp
 import discord
@@ -20,7 +19,7 @@ from src import texts
 # ---------------------------------------------------------------------------
 # Лимиты вложений Discord
 # ---------------------------------------------------------------------------
-def get_size_limit(guild: Optional[discord.Guild]) -> int:
+def get_size_limit(guild: discord.Guild | None) -> int:
     """
     Возвращает максимальный размер вложения для сервера (в байтах).
     Зависит от уровня Nitro-буста (premium_tier).
@@ -63,14 +62,12 @@ async def fetch_image(
     session: aiohttp.ClientSession,
     url: str,
     timeout: int = 20,
-) -> tuple[Optional[bytes], Optional[int]]:
+) -> tuple[bytes | None, int | None]:
     """
     Скачивает изображение по URL.
     Возвращает (data, None) при успехе или (None, status_code) при ошибке.
     """
-    async with session.get(
-        url, timeout=aiohttp.ClientTimeout(total=timeout)
-    ) as resp:
+    async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as resp:
         if resp.status != 200:
             return None, resp.status
         data = await resp.read()

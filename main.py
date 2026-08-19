@@ -19,13 +19,13 @@ async def main() -> None:
     # Инициализация базы данных
     await init_db()
     log.info("База данных инициализирована")
-    
+
     # Инициализация клиента LLM (история диалогов)
     await init_llm_client()
-    
+
     # Регистрация команд
     register_all()  # слэш-команды
-    
+
     # Запуск бота
     bot_task = asyncio.create_task(run_bot())
     try:

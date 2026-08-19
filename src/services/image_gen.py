@@ -5,16 +5,17 @@
 
 from __future__ import annotations
 
+import io
 import random
 import urllib.parse
-from typing import Optional
 
 import aiohttp
+import discord
 
 from src.utils import fetch_image
 
 
-async def generate(prompt: str) -> Optional[bytes]:
+async def generate(prompt: str) -> bytes | None:
     """
     Генерирует картинку по текстовому промпту.
     Возвращает байты PNG или None при ошибке.
@@ -34,3 +35,18 @@ async def generate(prompt: str) -> Optional[bytes]:
         if error:
             return None
         return image_data
+
+
+async def generate_image_direct(prompt: str) -> discord.File | None:
+    """
+    Прямая функция генерации для использования в trigger_handler.
+    Возвращает discord.File или None при ошибке.
+    """
+    image_data = await generate(prompt)
+    if not image_data:
+        return None
+    
+    return discord.File(
+        fp=io.BytesIO(image_data),
+        filename="expie_generated.png",
+    )

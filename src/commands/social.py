@@ -52,9 +52,7 @@ def register(bot_instance: commands.Bot) -> None:
         # --- Вызов в ЛС ---
         if not interaction.guild:
             if member is None or member == interaction.client.user:
-                await interaction.response.send_message(
-                    random.choice(texts.hug_pleased)
-                )
+                await interaction.response.send_message(random.choice(texts.hug_pleased))
             else:
                 response = texts.hug(member.mention)
                 await interaction.response.send_message(response)
@@ -83,9 +81,7 @@ def register(bot_instance: commands.Bot) -> None:
 
         # Обнимаем бота
         if member == interaction.guild.me:
-            await interaction.response.send_message(
-                random.choice(texts.hug_pleased)
-            )
+            await interaction.response.send_message(random.choice(texts.hug_pleased))
             return
 
         response = texts.hug(member.mention)

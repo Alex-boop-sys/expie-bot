@@ -27,7 +27,7 @@ async def get_connection() -> aiosqlite.Database:
     Использует ленивую инициализацию и lock для потокобезопасности.
     """
     global _db
-    
+
     if _db is None:
         async with _db_lock:
             # Двойная проверка после получения lock
@@ -38,14 +38,14 @@ async def get_connection() -> aiosqlite.Database:
                 await _db.execute("PRAGMA synchronous=NORMAL")
                 await _db.commit()
                 log.type("DB").info(f"Подключение к базе данных: {DB_PATH}")
-    
+
     return _db
 
 
 async def close_connection() -> None:
     """Закрывает подключение к базе данных."""
     global _db
-    
+
     if _db is not None:
         async with _db_lock:
             if _db is not None:
@@ -60,7 +60,7 @@ async def init_db() -> None:
     Создаёт таблицы, если они не существуют.
     """
     db = await get_connection()
-    
+
     # Таблица истории диалогов
     await db.execute("""
         CREATE TABLE IF NOT EXISTS conversation_history (
@@ -71,13 +71,13 @@ async def init_db() -> None:
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     # Индекс для быстрого поиска по пользователю
     await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_conversation_user_id 
         ON conversation_history(user_id)
     """)
-    
+
     # Таблица фактов о пользователях
     await db.execute("""
         CREATE TABLE IF NOT EXISTS user_facts (
@@ -87,7 +87,7 @@ async def init_db() -> None:
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     # Таблица настроек серверов
     await db.execute("""
         CREATE TABLE IF NOT EXISTS guild_settings (
@@ -97,7 +97,7 @@ async def init_db() -> None:
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     # Таблица настроек пользователей
     await db.execute("""
         CREATE TABLE IF NOT EXISTS user_settings (
@@ -107,7 +107,7 @@ async def init_db() -> None:
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     await db.commit()
     log.type("DB").info("База данных инициализирована")
 

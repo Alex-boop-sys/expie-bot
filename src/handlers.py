@@ -1,5 +1,6 @@
 """
 Обработка сообщений: пинги, reply на бота, обращение по имени.
+Интеграция с системой триггеров для обработки команд в тексте.
 """
 
 from __future__ import annotations
@@ -9,9 +10,12 @@ import random
 import discord
 
 from bot_instance import bot
+from config import env
 from logging_setup import log
 from src import texts
+from src.db.history import save_message_to_db
 from src.services.llm_client import ask_ai
+from src.services.triggers import match_trigger
 
 
 class Handlers:
@@ -36,9 +40,11 @@ class Handlers:
         - reply на сообщение бота
         - чистое упоминание / имя бота
         - сообщение, начинающееся с упоминания или имени
+        - триггерные команды (нарисуй, найди арт, root#)
         """
         content = message.content
         user_name = message.author.display_name
+        user_id = message.author.id
 
         # --- Reply на сообщение бота ---
         if message.reference and message.reference.message_id:
@@ -65,11 +71,17 @@ class Handlers:
                         )
                         return
 
+                    # Проверяем триггеры перед отправкой в LLM
+                    trigger = match_trigger(
+                        request, user_id, env.owner_id, env.co_owner_id
+                    )
+                    if trigger:
+                        await Handlers._handle_trigger(trigger, message, request)
+                        return
+
                     # Запрос к ИИ
                     async with message.channel.typing():
-                        response = await ask_ai(
-                            message.author.id, user_name, request
-                        )
+                        response = await ask_ai(message.author.id, user_name, request)
                         await message.reply(response)
                         log.info(f"Ответ на reply {message.id} отправлен")
                     return
@@ -102,6 +114,13 @@ class Handlers:
                     mention_author=False,
                 )
                 return
+
+            # Проверяем триггеры перед отправкой в LLM
+            trigger = match_trigger(request, user_id, env.owner_id, env.co_owner_id)
+            if trigger:
+                await Handlers._handle_trigger(trigger, message, request)
+                return
+
             async with message.channel.typing():
                 response = await ask_ai(message.author.id, user_name, request)
                 await message.reply(response)
@@ -118,13 +137,111 @@ class Handlers:
                         mention_author=False,
                     )
                     return
+
+                # Проверяем триггеры перед отправкой в LLM
+                trigger = match_trigger(request, user_id, env.owner_id, env.co_owner_id)
+                if trigger:
+                    await Handlers._handle_trigger(trigger, message, request)
+                    return
+
                 async with message.channel.typing():
-                    response = await ask_ai(
-                        message.author.id, user_name, request
-                    )
+                    response = await ask_ai(message.author.id, user_name, request)
                     await message.reply(response)
                     log.info(f"Ответ на сообщение {message.id} отправлен")
                 return
+
+    @staticmethod
+    async def _handle_trigger(
+        trigger, message: discord.Message, original_text: str
+    ) -> None:
+        """
+        Обрабатывает сработавший триггер.
+
+        Args:
+            trigger: Объект Trigger с данными о сработавшем триггере
+            message: Исходное сообщение Discord
+            original_text: Оригинальный текст сообщения
+        """
+        user_id = message.author.id
+        user_name = message.author.display_name
+
+        # 1. Административная команда отклонена (нет прав)
+        if trigger.action == "admin_denied":
+            await message.reply(
+                "Извините, но административные функции доступны только хозяину!"
+            )
+            return
+
+        # 2. Административная команда (root#)
+        if trigger.action == "admin":
+            command = trigger.admin_command
+            if command == "restart":
+                await message.reply(
+                    "⚙️ Команда перезагрузки принята. (Заглушка: функционал в разработке)"
+                )
+            elif command == "delete":
+                await message.reply(
+                    "🗑️ Команда удаления принята. (Заглушка: функционал в разработке)"
+                )
+            else:
+                await message.reply(f"Неизвестная админ-команда: {command}")
+            return
+
+        # 3. Генерация изображения
+        if trigger.action == "generate":
+            from src.services.image_gen import generate_image_direct
+
+            prompt = trigger.payload
+            log.info(f"Триггер генерации: {prompt}")
+
+            # Сохраняем в БД
+            await save_message_to_db(
+                user_id=user_id,
+                username=user_name,
+                user_message=original_text,
+                bot_response="Меня попросили нарисовать картинку и я сделал это.",
+            )
+
+            # Генерируем и отправляем изображение
+            try:
+                async with message.channel.typing():
+                    file = await generate_image_direct(prompt)
+                    if file:
+                        await message.reply(file=file)
+                    else:
+                        await message.reply("❌ Не удалось сгенерировать изображение.")
+            except Exception as e:
+                log.error(f"Ошибка генерации изображения: {e}")
+                await message.reply(f"❌ Произошла ошибка при генерации: {str(e)}")
+            return
+
+        # 4. Поиск арта
+        if trigger.action == "search":
+            from src.services.art_search import search_art_direct
+
+            query = trigger.payload
+            log.info(f"Триггер поиска арта: {query}")
+
+            # Сохраняем в БД
+            await save_message_to_db(
+                user_id=user_id,
+                username=user_name,
+                user_message=original_text,
+                bot_response="Меня попросили найти картинку, я сделал это и отдал.",
+            )
+
+            # Ищем и отправляем арт
+            try:
+                async with message.channel.typing():
+                    embed = await search_art_direct(query)
+                    if embed:
+                        await message.reply(embed=embed)
+                    else:
+                        await message.reply("❌ Ничего не найдено или произошла ошибка.")
+            except Exception as e:
+                log.error(f"Ошибка поиска арта: {e}")
+                await message.reply(f"❌ Произошла ошибка при поиске: {str(e)}")
+            return
 
 
 handlers = Handlers()

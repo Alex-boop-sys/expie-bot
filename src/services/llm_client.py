@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import random
 import re
-from typing import Any, Callable, Coroutine, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import aiohttp
 from aiolimiter import AsyncLimiter
@@ -53,7 +55,7 @@ def _sanitize_user_input(message: str) -> str:
     # Ограничиваем длину
     if len(message) > 1000:
         message = message[:1000]
-    
+
     # Удаляем попытки инъекции системных инструкций
     dangerous_patterns = [
         r"ignore previous instructions",
@@ -66,32 +68,38 @@ def _sanitize_user_input(message: str) -> str:
         r"<<SYS>>",
         r"<</SYS>>",
     ]
-    
+
     sanitized = message.lower()
     for pattern in dangerous_patterns:
         sanitized = re.sub(pattern, "[BLOCKED]", sanitized, flags=re.IGNORECASE)
-    
-    return message if sanitized == message.lower() else message.replace(
-        "ignore previous instructions", "[BLOCKED]"
-    ).replace("forget all previous", "[BLOCKED]")
+
+    return (
+        message
+        if sanitized == message.lower()
+        else message.replace("ignore previous instructions", "[BLOCKED]").replace(
+            "forget all previous", "[BLOCKED]"
+        )
+    )
 
 
-async def _build_messages_async(user_id: int, user_name: str, message: str) -> list[dict[str, str]]:
+async def _build_messages_async(
+    user_id: int, user_name: str, message: str
+) -> list[dict[str, str]]:
     """
     Асинхронная версия сборки сообщений с использованием SQLite для истории.
     """
     # Санитизируем ввод пользователя
     sanitized_message = _sanitize_user_input(message)
-    
+
     # Обогащаем сообщение именем, чтобы модель могла обращаться по имени
     enriched = f"{user_name}: {sanitized_message}"
-    
+
     # Добавляем сообщение пользователя в базу данных
     await db_history.add_message(user_id, "user", enriched)
-    
+
     # Получаем последние MAX_HISTORY сообщений из базы
     history = await db_history.get_history(user_id, limit=MAX_HISTORY)
-    
+
     return [{"role": "system", "content": texts.def_prompt}] + history
 
 
@@ -101,10 +109,10 @@ async def _save_response_async(user_id: int, text: str) -> str:
     """
     # Экранируем звёздочки для Discord
     escaped_text = text.replace("*", "\\*")
-    
+
     # Сохраняем в базу данных
     await db_history.add_message(user_id, "assistant", escaped_text)
-    
+
     return escaped_text
 
 
@@ -119,12 +127,11 @@ async def clear_history(user_id: int) -> bool:
 # ---------------------------------------------------------------------------
 # Провайдеры LLM
 # ---------------------------------------------------------------------------
-async def _call_cloudflare(
-    model: str, messages: list[dict[str, str]]
-) -> Optional[str]:
+async def _call_cloudflare(model: str, messages: list[dict[str, str]]) -> str | None:
     """
     Вызов Cloudflare Workers AI.
     Первый в цепочке fallback: стабильный, редко падает, бесплатный tier.
+    Включает retry-логику для сетевых ошибок (до 3 попыток).
     """
     if not env.cloudflare_account_id or not env.cloudflare_api_token:
         log.type("CLOUDFLARE").warning("Ключи Cloudflare не настроены, пропускаем")
@@ -142,42 +149,61 @@ async def _call_cloudflare(
         "top_p": 0.9,
     }
 
-    async with aiohttp.ClientSession() as session:
-        log.type("CLOUDFLARE").info(f"Попытка вызвать Cloudflare: {model}")
-        try:
-            async with session.post(
-                url,
-                headers={"Authorization": f"Bearer {env.cloudflare_api_token}"},
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=CLOUDFLARE_TIMEOUT),
-            ) as response:
-                if response.status == 429:
-                    log.type("CLOUDFLARE").warning(
-                        "429 — дневной лимит neurons исчерпан"
-                    )
-                    return None
-                if response.status != 200:
-                    log.type("CLOUDFLARE").warning(f"Ошибка HTTP {response.status}")
-                    return None
+    # Retry-логика: до 3 попыток при сетевых ошибках
+    max_retries = 3
+    for attempt in range(max_retries):
+        async with aiohttp.ClientSession() as session:
+            log.type("CLOUDFLARE").info(
+                f"Попытка #{attempt + 1}/{max_retries} вызвать Cloudflare: {model}"
+            )
+            try:
+                async with session.post(
+                    url,
+                    headers={"Authorization": f"Bearer {env.cloudflare_api_token}"},
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=CLOUDFLARE_TIMEOUT),
+                ) as response:
+                    if response.status == 429:
+                        log.type("CLOUDFLARE").warning(
+                            "429 — дневной лимит neurons исчерпан"
+                        )
+                        return None
+                    if response.status != 200:
+                        log.type("CLOUDFLARE").warning(f"Ошибка HTTP {response.status}")
+                        # При ошибках 5xx пробуем снова
+                        if response.status >= 500 and attempt < max_retries - 1:
+                            await asyncio.sleep(2**attempt)  # Exponential backoff
+                            continue
+                        return None
 
-                data = await response.json()
+                    data = await response.json()
 
-                if not data.get("success"):
-                    err = data.get("errors", [{}])[0]
-                    log.type("CLOUDFLARE").warning(
-                        f"Ошибка API: {err.get('message', 'unknown')}"
-                    )
-                    return None
+                    if not data.get("success"):
+                        err = data.get("errors", [{}])[0]
+                        log.type("CLOUDFLARE").warning(
+                            f"Ошибка API: {err.get('message', 'unknown')}"
+                        )
+                        return None
 
-                result = data.get("result", {})
-                return result.get("response")
+                    result = data.get("result", {})
+                    return result.get("response")
 
-        except Exception as e:
-            log.type("CLOUDFLARE").warning(f"Исключение: {e}")
-            return None
+            except (TimeoutError, aiohttp.ClientError) as e:
+                log.type("CLOUDFLARE").warning(
+                    f"Сетевая ошибка (попытка {attempt + 1}): {e}"
+                )
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
+                    continue
+                return None
+            except Exception as e:
+                log.type("CLOUDFLARE").warning(f"Исключение: {e}")
+                return None
+
+    return None
 
 
-async def _call_groq(model: str, messages: list[dict[str, str]]) -> Optional[str]:
+async def _call_groq(model: str, messages: list[dict[str, str]]) -> str | None:
     """Вызов Groq API (OpenAI-compatible)."""
     async with aiohttp.ClientSession() as session:
         log.type("GROQ").info(f"Попытка вызвать GROQ: {model}")
@@ -212,9 +238,7 @@ async def _call_groq(model: str, messages: list[dict[str, str]]) -> Optional[str
             return None
 
 
-async def _call_openrouter(
-    model: str, messages: list[dict[str, str]]
-) -> Optional[str]:
+async def _call_openrouter(model: str, messages: list[dict[str, str]]) -> str | None:
     """Вызов OpenRouter API (OpenAI-compatible)."""
     if not env.openrouter_api_key:
         return None
@@ -242,9 +266,7 @@ async def _call_openrouter(
                 timeout=aiohttp.ClientTimeout(total=OPENROUTER_TIMEOUT),
             ) as response:
                 if response.status != 200:
-                    log.type("OPENROUTER").warning(
-                        f"{model}: ошибка {response.status}"
-                    )
+                    log.type("OPENROUTER").warning(f"{model}: ошибка {response.status}")
                     return None
                 data = await response.json()
                 return data["choices"][0]["message"]["content"]
@@ -257,7 +279,7 @@ async def _call_openrouter(
 # Таблица провайдеров (вместо if/elif)
 # ---------------------------------------------------------------------------
 PROVIDER_FUNCS: dict[
-    str, Callable[[str, list[dict[str, str]]], Coroutine[Any, Any, Optional[str]]]
+    str, Callable[[str, list[dict[str, str]]], Coroutine[Any, Any, str | None]]
 ] = {
     "openrouter": _call_openrouter,
     "cloudflare": _call_cloudflare,
@@ -272,7 +294,7 @@ async def ask_ai(user_id: int, user_name: str, message: str) -> str:
     """
     Основная точка входа: запрос к LLM с fallback по цепочке провайдеров.
     Сигнатура не меняется — будущие фичи (суммаризация и т.д.) прячутся внутри.
-    
+
     Включает:
     - Rate limiting для защиты от спама
     - Санитизацию ввода (защита от prompt injection)
